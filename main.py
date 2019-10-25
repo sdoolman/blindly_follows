@@ -2,16 +2,20 @@ import numpy as np
 
 
 class CRR(object):
-    def __init__(self, *mods):
-        self._mods = mods
-        basis = []
-        product = np.prod(self._mods)
-        for m in mods:
+    def __init__(self, *moduli):
+        self._moduli = moduli
+        self._basis_vector = tuple(CRR.calc_basis(self._moduli))
+
+    @staticmethod
+    def calc_basis(moduli):
+        basis_vector = []
+        product = np.prod(moduli)
+        for m in moduli:
             q = product // m
             r = np.mod(q, m)
             i = CRR.mulinv(r, m)
-            basis += [q * i]
-        self._basis = tuple(basis)
+            basis_vector += [q * i]
+        return basis_vector
 
     @staticmethod
     def xgcd(a, b):
@@ -29,6 +33,14 @@ class CRR(object):
         g, x, _ = CRR.xgcd(a, b)
         if g == 1:
             return x % b
+
+    @property
+    def mods(self):
+        return self._moduli
+
+    @property
+    def basis_vectors(self):
+        return self._basis_vector
 
 
 if __name__ == '__main__':
