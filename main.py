@@ -16,3 +16,11 @@ if __name__ == '__main__':
     y_vec = np.array([5, 5, 0], dtype="uint8")
     print(crr.add(x_vec, y_vec))
     print(crr.mul(x_vec, y_vec))
+
+    '''
+    Input/State	0	1
+    0       	0	0
+    1       	1	1
+    f(x,y) = x * y + x + y (mod 2)
+    
+    '''
