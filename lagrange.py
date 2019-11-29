@@ -15,18 +15,19 @@ def main():
         if i != 0:
             points.append((int(sys.argv[i].split(".")[0]), int(sys.argv[i].split(".")[1])))
 
-    # points =[(0,0),(25,30),(50,10), (57,0)]
+    # points = [(10, 91), (20, 30), (30, 11), (40, 10)]
     P = lagrange(points)
-    nr = 2
-    print('(' + str(points[nr][0]) + ', ' + str(points[nr][1]) + ') P(' + str(points[nr][0]) + ')= ' + str(
-        P(points[nr][0])))
+
+    # nr = 2
+    # print('(' + str(points[nr][0]) + ', ' + str(points[nr][1]) + ') P(' + str(points[nr][0]) + ')= ' + str(
+    #     P(points[nr][0])))
+
     plot(P, points)
 
 
 def plot(f, points):
     x = list(range(0, 100))
-    y = map(f, x)
-    print(y)
+    y = list(map(f, x))
     plt.plot(x, list(y), linewidth=2.0)
     x_list = []
     y_list = []

@@ -1,3 +1,6 @@
+import numpy as np
+
+
 def xgcd(a, b):
     """return (g, x, y) such that a*x + b*y = g = gcd(a, b)"""
     x0, x1, y0, y1 = 0, 1, 1, 0
@@ -13,3 +16,18 @@ def mulinv(a, b):
     g, x, _ = xgcd(a, b)
     if g == 1:
         return x % b
+
+
+def lagrange(x, w, ff):
+    M = len(x)
+    p = np.mod(np.poly1d(0.0), ff)
+    for j in range(M):
+        pt = np.mod(np.poly1d(w[j]), ff)
+        for k in range(M):
+            if k == j:
+                continue
+            fac_inv = mulinv(np.mod(x[j] - x[k], ff), ff)
+            tmp = np.mod(np.mod(np.poly1d([1.0, -x[k]]), ff) * fac_inv, ff)
+            pt = np.mod(pt * tmp, ff)
+        p = np.mod(p + pt, ff)
+    return p

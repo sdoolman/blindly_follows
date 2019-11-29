@@ -5,10 +5,9 @@ import numpy as np
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
-from crr import CRR
-
-
 ###################################################################################################
+from crr import shamir
+
 
 def print_done(start_val):
     global elapsed
@@ -27,11 +26,11 @@ if __name__ == '__main__':
     # parser.add_argument('polynomial')
     args = parser.parse_args()
 
-    crr = CRR(*np.array([8, 7, 5], dtype="uint8"))
-    x_vec = np.array([3, 2, 1], dtype="uint8")
-    y_vec = np.array([5, 5, 0], dtype="uint8")
-    print(crr.add(x_vec, y_vec))
-    print(crr.mul(x_vec, y_vec))
+    # crr = CRR(*np.array([8, 7, 5], dtype="uint8"))
+    # x_vec = np.array([3, 2, 1], dtype="uint8")
+    # y_vec = np.array([5, 5, 0], dtype="uint8")
+    # print(crr.add(x_vec, y_vec))
+    # print(crr.mul(x_vec, y_vec))
 
     print_start('state machine data generation')
     start = timer()
@@ -48,8 +47,20 @@ if __name__ == '__main__':
                      [(int('{:d}{:d}'.format(src, 1)),
                        int('{:d}{:d}'.format(t[0][1], t[1]))) for src, t in transitions.items()]))
 
-    print(['{:d}.{:d}'.format(x, y) for x, y in zip(x_s, y_s)])
-
+    # print(['{:d}.{:d}'.format(x, y) for x, y in zip(x_s, y_s)])
+    # from scipy.interpolate import lagrange
+    # from numpy.polynomial.polynomial import Polynomial
+    #
+    # poly = lagrange(x_s, y_s)
+    # c = Polynomial(poly).coef
+    primes = [37, 47, 67]
+    print('Find y={:d} for x={:d} while P={:d}'.format(y_s[9], x_s[9], primes[0] * primes[1] * primes[2]))
+    y0 = shamir._lagrange_interpolate(x_s[9] % primes[0], np.mod(x_s, primes[0]), np.mod(y_s, primes[0]), primes[0])
+    print('y={:d} (mod {:d})'.format(y0, primes[0]))
+    y1 = shamir._lagrange_interpolate(x_s[9] % primes[1], np.mod(x_s, primes[1]), np.mod(y_s, primes[1]), primes[1])
+    print('y={:d} (mod {:d})'.format(y1, primes[1]))
+    y2 = shamir._lagrange_interpolate(x_s[9] % primes[2], np.mod(x_s, primes[2]), np.mod(y_s, primes[2]), primes[2])
+    print('y={:d} (mod {:d})'.format(y2, primes[2]))
     print_done(start)
 
     print_start('state machine drawing')

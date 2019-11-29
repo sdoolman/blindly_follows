@@ -18,6 +18,8 @@ import random
 # possible to our security level; e.g.  desired security level of 128
 # bits -- too large and all the ciphertext is large; too small and
 # security is compromised)
+import numpy as np
+
 _PRIME = 2 ** 127 - 1
 # 13th Mersenne Prime is 2**521 - 1
 
@@ -85,12 +87,14 @@ def _lagrange_interpolate(x, x_s, y_s, p):
     k points will define a polynomial of up to kth order
     '''
     k = len(x_s)
-    assert k == len(set(x_s)), "points must be distinct"
+    print(x_s)
+    print(set(x_s))
+    assert k == len(set(x_s)), 'points must be distinct'
 
-    def PI(vals):  # upper-case PI -- product of inputs
+    def PI(vals, p):  # upper-case PI -- product of inputs
         accum = 1
         for v in vals:
-            accum *= v
+            accum = np.mod(np.multiply(accum, v), p)
         return accum
 
     nums = []  # avoid inexact division
@@ -98,9 +102,9 @@ def _lagrange_interpolate(x, x_s, y_s, p):
     for i in range(k):
         others = list(x_s)
         cur = others.pop(i)
-        nums.append(PI(x - o for o in others))
-        dens.append(PI(cur - o for o in others))
-    den = PI(dens)
+        nums.append(PI([x - o for o in others], p))
+        dens.append(PI([cur - o for o in others], p))
+    den = PI(dens, p)
     num = sum([_divmod(nums[i] * den * y_s[i] % p, dens[i], p)
                for i in range(k)])
     return (_divmod(num, den, p) + p) % p
@@ -135,4 +139,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    _lagrange_interpolate(2, [1, 2, 3], [1, 4, 9], 5)
