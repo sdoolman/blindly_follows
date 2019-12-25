@@ -19,15 +19,27 @@ def print_start(msg):
 
 
 def generate_data():
-    states = range(1, 10)
-    transitions = dict()
-    for src in states:
-        transitions[src] = (
-            {0: random.choice(states), 1: random.choice(states)},
-            random.randint(0, 1)
-        )
+    # states = range(1, 10)
+    # transitions = dict()
+    # for src in states:
+    #     transitions[src] = (
+    #         {0: random.choice(states), 1: random.choice(states)},
+    #         random.randint(0, 1)
+    #     )
+    states = {
+        211: 100,
+        223: 200,
+        227: 300,
+        229: 400
+    }
+    transitions = {
+        100: ({1: 100, 2: 200, 3: 400, 4: 300}, random.randint(0, 1)),
+        200: ({1: 100, 2: 300, 3: 400, 4: 200}, random.randint(0, 1)),
+        300: ({1: 300, 2: 200, 3: 100, 4: 400}, random.randint(0, 1)),
+        400: ({1: 200, 2: 300, 3: 400, 4: 100}, random.randint(0, 1)),
+    }
 
-    return states, transitions
+    return list(states.values()), transitions
 
 
 if __name__ == '__main__':
@@ -47,10 +59,14 @@ if __name__ == '__main__':
     start = timer()
     states, transitions = generate_data()
 
-    x_s, y_s = zip(*([(int('{:d}{:d}'.format(src, 0)),
-                       int('{:d}{:d}'.format(t[0][0], t[1]))) for src, t in transitions.items()] +
-                     [(int('{:d}{:d}'.format(src, 1)),
-                       int('{:d}{:d}'.format(t[0][1], t[1]))) for src, t in transitions.items()]))
+    x_s, y_s = zip(*([(int('{:d}{:d}'.format(src, 1)),
+                       int('{:d}{:d}'.format(t[0].get(1), t[1]))) for src, t in transitions.items()] +
+                     [(int('{:d}{:d}'.format(src, 2)),
+                       int('{:d}{:d}'.format(t[0].get(2), t[1]))) for src, t in transitions.items()] +
+                     [(int('{:d}{:d}'.format(src, 3)),
+                       int('{:d}{:d}'.format(t[0].get(4), t[1]))) for src, t in transitions.items()] +
+                     [(int('{:d}{:d}'.format(src, 4)),
+                       int('{:d}{:d}'.format(t[0].get(4), t[1]))) for src, t in transitions.items()]))
 
     elapsed = timer() - start
     print_done(start)
@@ -84,14 +100,24 @@ if __name__ == '__main__':
         states=[
             {'name': str(src), 'tags': ['out: {:d}'.format(trans[1])]} for src, trans in transitions.items()
         ],
-        transitions=[{'trigger': 'in: {:d}'.format(0),
+        transitions=[{'trigger': 'in: {:d}'.format(1),
                       'source': str(src),
-                      'dest': str(trans[0][0]),
+                      'dest': str(trans[0].get(1)),
                       'after': str(trans[1])}
                      for src, trans in transitions.items()] +
-                    [{'trigger': 'in: {:d}'.format(1),
+                    [{'trigger': 'in: {:d}'.format(2),
                       'source': str(src),
-                      'dest': str(trans[0][1]),
+                      'dest': str(trans[0].get(2)),
+                      'after': str(trans[1])}
+                     for src, trans in transitions.items()] +
+                    [{'trigger': 'in: {:d}'.format(3),
+                      'source': str(src),
+                      'dest': str(trans[0].get(3)),
+                      'after': str(trans[1])}
+                     for src, trans in transitions.items()] +
+                    [{'trigger': 'in: {:d}'.format(4),
+                      'source': str(src),
+                      'dest': str(trans[0].get(4)),
                       'after': str(trans[1])}
                      for src, trans in transitions.items()],
         initial=str(states[0]),
