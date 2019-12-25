@@ -1,11 +1,13 @@
+import itertools
 import random
 from timeit import default_timer as timer
 
+import numpy as np
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
-
 ###################################################################################################
+from polymod import PolyMod, Mod
 
 
 def print_done(start_val):
@@ -27,10 +29,10 @@ def generate_data():
     #         random.randint(0, 1)
     #     )
     states = {
-        211: 100,
-        223: 200,
-        227: 300,
-        229: 400
+        100: 211,
+        200: 223,
+        300: 227,
+        400: 229,
     }
     transitions = {
         100: ({1: 100, 2: 200, 3: 400, 4: 300}, random.randint(0, 1)),
@@ -39,7 +41,7 @@ def generate_data():
         400: ({1: 200, 2: 300, 3: 400, 4: 100}, random.randint(0, 1)),
     }
 
-    return list(states.values()), transitions
+    return states, transitions
 
 
 if __name__ == '__main__':
@@ -59,14 +61,20 @@ if __name__ == '__main__':
     start = timer()
     states, transitions = generate_data()
 
-    x_s, y_s = zip(*([(int('{:d}{:d}'.format(src, 1)),
-                       int('{:d}{:d}'.format(t[0].get(1), t[1]))) for src, t in transitions.items()] +
-                     [(int('{:d}{:d}'.format(src, 2)),
-                       int('{:d}{:d}'.format(t[0].get(2), t[1]))) for src, t in transitions.items()] +
-                     [(int('{:d}{:d}'.format(src, 3)),
-                       int('{:d}{:d}'.format(t[0].get(4), t[1]))) for src, t in transitions.items()] +
-                     [(int('{:d}{:d}'.format(src, 4)),
-                       int('{:d}{:d}'.format(t[0].get(4), t[1]))) for src, t in transitions.items()]))
+    xy_s = itertools.chain(*[
+        [(src + i, t[0].get(1)) for i in [1, 2, 3, 4]]
+        # [(src + 1, t[0].get(1)), (src + 2, t[0].get(2)), (src + 3, t[0].get(3)), (src + 4, t[0].get(4))]
+        for src, t in transitions.items()])
+
+    primes = [states[k] for k in transitions.keys()]
+    product = np.prod(primes, dtype=np.int64)
+    Mod.set_mod(int(product))
+    p = PolyMod.interpolate(list(xy_s))
+    # print('p={:s} (mod {:d})'.format(str(p), product))
+    for prime in primes:
+        Mod.set_mod(prime)
+        pp = PolyMod([int(str(t)) for t in p.terms])
+        print('pp={:s} (mod {:d})'.format(str(pp), prime))
 
     elapsed = timer() - start
     print_done(start)
@@ -120,7 +128,7 @@ if __name__ == '__main__':
                       'dest': str(trans[0].get(4)),
                       'after': str(trans[1])}
                      for src, trans in transitions.items()],
-        initial=str(states[0]),
+        initial=str(list(states.keys())[0]),
         show_state_attributes=True
     )
     m.get_graph().draw('diagram.png', prog='dot')
