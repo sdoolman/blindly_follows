@@ -1,4 +1,5 @@
 import numpy as np
+import primefac
 
 
 def xgcd(a, b):
@@ -31,3 +32,12 @@ def lagrange(x, w, ff):
             pt = np.mod(pt * tmp, ff)
         p = np.mod(p + pt, ff)
     return p
+
+
+def sieve_points(xy_s):
+    xs = [x for x, _ in xy_s]
+    diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
+    factors = [list(r) for r in map(primefac.primefac, diffs)]
+    primes1 = set([p for subset in factors for p in subset])
+    primes2 = set([x for x in range(2, max(primes1)) if not [t for t in range(2, x) if not x % t]])
+    return sorted(primes2.difference(primes1))

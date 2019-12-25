@@ -21,24 +21,19 @@ def print_start(msg):
 
 
 def generate_data():
-    # states = range(1, 10)
-    # transitions = dict()
-    # for src in states:
-    #     transitions[src] = (
-    #         {0: random.choice(states), 1: random.choice(states)},
-    #         random.randint(0, 1)
-    #     )
     states = {
-        100: 211,
-        200: 223,
-        300: 227,
-        400: 229,
+        100: 113,
+        200: 127,
+        300: 137,
+        400: 149,
     }
+    # {q1:100,q2:200,q3:300,q4:400}
+    # {0:0,1:1,b:2,br:3,bl:4,c:5}
     transitions = {
-        100: ({1: 100, 2: 200, 3: 400, 4: 300}, random.randint(0, 1)),
-        200: ({1: 100, 2: 300, 3: 400, 4: 200}, random.randint(0, 1)),
-        300: ({1: 300, 2: 200, 3: 100, 4: 400}, random.randint(0, 1)),
-        400: ({1: 200, 2: 300, 3: 400, 4: 100}, random.randint(0, 1)),
+        100: ({14: 100, 23: 100, 32: 100, 40: 100, 4: 100, 50: 400}, random.randint(0, 1)),
+        200: ({10: 200, 23: 300, 34: 200, 43: 200, 1: 200, 52: 200}, random.randint(0, 1)),
+        300: ({11: 300, 24: 400, 32: 300, 5: 100, 51: 100}, random.randint(0, 1)),
+        400: ({10: 400, 25: 200, 34: 400, 5: 200, 52: 400}, random.randint(0, 1)),
     }
 
     return states, transitions
@@ -48,22 +43,14 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument('polynomial')
     args = parser.parse_args()
-
-    # crr = CRR(*np.array([8, 7, 5], dtype="uint8"))
-    # x_vec = np.array([3, 2, 1], dtype="uint8")
-    # y_vec = np.array([5, 5, 0], dtype="uint8")
-    # print(crr.add(x_vec, y_vec))
-    # print(crr.mul(x_vec, y_vec))
 
     print_start('state machine data generation')
     start = timer()
     states, transitions = generate_data()
 
     xy_s = itertools.chain(*[
-        [(src + i, t[0].get(1)) for i in [1, 2, 3, 4]]
-        # [(src + 1, t[0].get(1)), (src + 2, t[0].get(2)), (src + 3, t[0].get(3)), (src + 4, t[0].get(4))]
+        [(src + i, t[0].get(i)) for i in t[0].keys()]
         for src, t in transitions.items()])
 
     primes = [states[k] for k in transitions.keys()]
@@ -78,16 +65,6 @@ if __name__ == '__main__':
 
     elapsed = timer() - start
     print_done(start)
-
-    # primes = [37, 47, 67]
-    # print('Find y={:d} for x={:d} while P={:d}'.format(y_s[9], x_s[9], primes[0] * primes[1] * primes[2]))
-    # y0 = shamir._lagrange_interpolate(x_s[9] % primes[0], np.mod(x_s, primes[0]), np.mod(y_s, primes[0]), primes[0])
-    # print('y={:d} (mod {:d})'.format(y0, primes[0]))
-    # y1 = shamir._lagrange_interpolate(x_s[9] % primes[1], np.mod(x_s, primes[1]), np.mod(y_s, primes[1]), primes[1])
-    # print('y={:d} (mod {:d})'.format(y1, primes[1]))
-    # y2 = shamir._lagrange_interpolate(x_s[9] % primes[2], np.mod(x_s, primes[2]), np.mod(y_s, primes[2]), primes[2])
-    # print('y={:d} (mod {:d})'.format(y2, primes[2]))
-    # print_done(start)
 
     print_start('state machine drawing')
     start = timer()
@@ -108,26 +85,13 @@ if __name__ == '__main__':
         states=[
             {'name': str(src), 'tags': ['out: {:d}'.format(trans[1])]} for src, trans in transitions.items()
         ],
-        transitions=[{'trigger': 'in: {:d}'.format(1),
-                      'source': str(src),
-                      'dest': str(trans[0].get(1)),
-                      'after': str(trans[1])}
-                     for src, trans in transitions.items()] +
-                    [{'trigger': 'in: {:d}'.format(2),
-                      'source': str(src),
-                      'dest': str(trans[0].get(2)),
-                      'after': str(trans[1])}
-                     for src, trans in transitions.items()] +
-                    [{'trigger': 'in: {:d}'.format(3),
-                      'source': str(src),
-                      'dest': str(trans[0].get(3)),
-                      'after': str(trans[1])}
-                     for src, trans in transitions.items()] +
-                    [{'trigger': 'in: {:d}'.format(4),
-                      'source': str(src),
-                      'dest': str(trans[0].get(4)),
-                      'after': str(trans[1])}
-                     for src, trans in transitions.items()],
+        transitions=list(itertools.chain(*[
+            [{'trigger': 'in: {:d}'.format(i),
+              'source': str(src),
+              'dest': str(t[0].get(i)),
+              'after': str(t[1])
+              } for i in t[0].keys()]
+            for src, t in transitions.items()])),
         initial=str(list(states.keys())[0]),
         show_state_attributes=True
     )
