@@ -1,12 +1,11 @@
 import random
 from timeit import default_timer as timer
 
-import numpy as np
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
+
 ###################################################################################################
-from crr import shamir
 
 
 def print_done(start_val):
@@ -17,6 +16,18 @@ def print_done(start_val):
 
 def print_start(msg):
     print('> starting {:s}...'.format(msg))
+
+
+def generate_data():
+    states = range(1, 10)
+    transitions = dict()
+    for src in states:
+        transitions[src] = (
+            {0: random.choice(states), 1: random.choice(states)},
+            random.randint(0, 1)
+        )
+
+    return states, transitions
 
 
 if __name__ == '__main__':
@@ -34,34 +45,25 @@ if __name__ == '__main__':
 
     print_start('state machine data generation')
     start = timer()
-    states = range(1, 10)
-    transitions = dict()
-    for src in states:
-        transitions[src] = (
-            {0: random.choice(states), 1: random.choice(states)},
-            random.randint(0, 1)
-        )
+    states, transitions = generate_data()
 
     x_s, y_s = zip(*([(int('{:d}{:d}'.format(src, 0)),
-                       int('{:d}{:d}'.format(t[0][0], t[1]))) for src, t in transitions.items()] + \
+                       int('{:d}{:d}'.format(t[0][0], t[1]))) for src, t in transitions.items()] +
                      [(int('{:d}{:d}'.format(src, 1)),
                        int('{:d}{:d}'.format(t[0][1], t[1]))) for src, t in transitions.items()]))
 
-    # print(['{:d}.{:d}'.format(x, y) for x, y in zip(x_s, y_s)])
-    # from scipy.interpolate import lagrange
-    # from numpy.polynomial.polynomial import Polynomial
-    #
-    # poly = lagrange(x_s, y_s)
-    # c = Polynomial(poly).coef
-    primes = [37, 47, 67]
-    print('Find y={:d} for x={:d} while P={:d}'.format(y_s[9], x_s[9], primes[0] * primes[1] * primes[2]))
-    y0 = shamir._lagrange_interpolate(x_s[9] % primes[0], np.mod(x_s, primes[0]), np.mod(y_s, primes[0]), primes[0])
-    print('y={:d} (mod {:d})'.format(y0, primes[0]))
-    y1 = shamir._lagrange_interpolate(x_s[9] % primes[1], np.mod(x_s, primes[1]), np.mod(y_s, primes[1]), primes[1])
-    print('y={:d} (mod {:d})'.format(y1, primes[1]))
-    y2 = shamir._lagrange_interpolate(x_s[9] % primes[2], np.mod(x_s, primes[2]), np.mod(y_s, primes[2]), primes[2])
-    print('y={:d} (mod {:d})'.format(y2, primes[2]))
+    elapsed = timer() - start
     print_done(start)
+
+    # primes = [37, 47, 67]
+    # print('Find y={:d} for x={:d} while P={:d}'.format(y_s[9], x_s[9], primes[0] * primes[1] * primes[2]))
+    # y0 = shamir._lagrange_interpolate(x_s[9] % primes[0], np.mod(x_s, primes[0]), np.mod(y_s, primes[0]), primes[0])
+    # print('y={:d} (mod {:d})'.format(y0, primes[0]))
+    # y1 = shamir._lagrange_interpolate(x_s[9] % primes[1], np.mod(x_s, primes[1]), np.mod(y_s, primes[1]), primes[1])
+    # print('y={:d} (mod {:d})'.format(y1, primes[1]))
+    # y2 = shamir._lagrange_interpolate(x_s[9] % primes[2], np.mod(x_s, primes[2]), np.mod(y_s, primes[2]), primes[2])
+    # print('y={:d} (mod {:d})'.format(y2, primes[2]))
+    # print_done(start)
 
     print_start('state machine drawing')
     start = timer()
