@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import primefac
 
@@ -34,10 +36,25 @@ def lagrange(x, w, ff):
     return p
 
 
-def sieve_points(xy_s):
+def get_ab_primes(threshold, n, k, to_skip=None):
+    if to_skip is None:
+        to_skip = set()
+    assert k < n
+    generated = [x for x in range(2, threshold) if not [t for t in range(2, x) if not x % t]]
+    primes = set(generated).difference(to_skip)
+    ab_primes = list()
+    while not ab_primes:
+        m0, *m = sorted(random.sample(primes, n + 1))
+        if np.less(np.prod([m0] + m, dtype=np.int64), 2 ** 30) and \
+                m0 * np.prod(m[-k + 1:]) < np.prod(m[:k], dtype=np.int64):
+            ab_primes = [m0] + m
+    return set(ab_primes)
+
+
+def get_primes(xy_s):
     xs = [x for x, _ in xy_s]
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
     factors = [list(r) for r in map(primefac.primefac, diffs)]
-    primes1 = set([p for subset in factors for p in subset])
-    primes2 = set([x for x in range(2, max(primes1)) if not [t for t in range(2, x) if not x % t]])
-    return sorted(primes2.difference(primes1))
+    primes_to_skip = set([p for subset in factors for p in subset])
+    primes = get_ab_primes(max(primes_to_skip), n=3, k=2, to_skip=primes_to_skip)  # TODO: choose n,k in another way
+    return primes
