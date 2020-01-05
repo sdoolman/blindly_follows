@@ -42,9 +42,9 @@ def get_ab_primes(threshold, n, k, to_skip=None):
     assert k < n
     generated = [x for x in range(2, threshold) if not [t for t in range(2, x) if not x % t]]
     primes = set(generated).difference(to_skip)
-    ab_primes = list()
+    m0, ab_primes = min(primes), list()
     while not ab_primes:
-        m0, *m = sorted(random.sample(primes, n + 1))
+        m = random.sample(primes - {m0}, n)
         if np.less(np.prod([m0] + m, dtype=np.int64), 2 ** 30) and \
                 m0 * np.prod(m[-k + 1:]) < np.prod(m[:k], dtype=np.int64):
             ab_primes = [m0] + m
