@@ -1,6 +1,6 @@
 import itertools
+import multiprocessing
 import random
-from multiprocessing import Process
 from timeit import default_timer as timer
 
 import numpy as np
@@ -8,6 +8,7 @@ from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
 ###################################################################################################
+from crr import mathlib
 from crr.generic_functions import get_primes
 from polymod import PolyMod, Mod
 
@@ -42,17 +43,24 @@ def generate_data():
     return data
 
 
-def f(terms, mod, inputs):
+def f(terms, mod, current_state, inputs, results_out):
     Mod.set_mod(mod)
     poly = PolyMod(terms)
     print(f'polynomial is: {str(poly)} (mod {mod})')
     # print(f'polynomial is: {[int(t.value) for t in poly.terms]} (mod {mod})')
-    current_state = 200  # TODO: currently starting from 200
 
     for i in inputs:
         current_state = poly(current_state + i).value
 
-    print(f'current state is: {current_state} (mod {mod})')
+    # print(f'current state is: {current_state} (mod {mod})')
+    results_out.put((current_state, mod))
+
+
+def collect_shares(shares):
+    y_i = [x for x, _ in shares]  # remainders
+    m_i = [x for _, x in shares]  # co-primes
+    y = mathlib.garner_algorithm(y_i, m_i)
+    return y
 
 
 if __name__ == '__main__':
@@ -75,10 +83,10 @@ if __name__ == '__main__':
     print_start('interpolating polynomial')
     start = timer()
 
-    primes = get_primes(xy_s)
-    print(f'co-prime sequence is: {primes}')
+    ms = get_primes(xy_s)
+    print(f'co-prime sequence is: m0={ms[0]}, m={ms[1:]}')
 
-    product = np.prod(list(primes), dtype=np.int64)
+    product = np.prod(list(ms[1:]), dtype=np.int64)
     Mod.set_mod(int(product))
     p = PolyMod.interpolate(xy_s)
 
@@ -90,15 +98,25 @@ if __name__ == '__main__':
     # print('p={:s} (mod {:d})'.format(str(p), product))
 
     jobs = list()
-    for prime in primes:
-        Mod.set_mod(prime)
-        job = Process(target=f, args=([int(str(t)) for t in p.terms], prime, [23, 24, 25]))
+    results_queue = multiprocessing.SimpleQueue()
+    for m in ms[1:]:
+        Mod.set_mod(m)
+        job = multiprocessing.Process(target=f, args=(
+            [t.value for t in p.terms],
+            m,
+            200,
+            [23, 24, 25],
+            results_queue))
         jobs.append(job)
         job.start()
 
+    results = list()
     for job in jobs:
         job.join()
+        results += [results_queue.get()]
 
+    next_state = mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])
+    print(f'next state is: [{next_state}]!')
     print_done(start)
 
     print_start('state machine drawing')

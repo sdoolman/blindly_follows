@@ -1,4 +1,4 @@
-import random
+import itertools
 
 import numpy as np
 import primefac
@@ -42,13 +42,13 @@ def get_ab_primes(threshold, n, k, to_skip=None):
     assert k < n
     generated = [x for x in range(2, threshold) if not [t for t in range(2, x) if not x % t]]
     primes = set(generated).difference(to_skip)
-    m0, ab_primes = min(primes), list()
-    while not ab_primes:
-        m = random.sample(primes - {m0}, n)
-        if np.less(np.prod([m0] + m, dtype=np.int64), 2 ** 30) and \
-                m0 * np.prod(m[-k + 1:]) < np.prod(m[:k], dtype=np.int64):
-            ab_primes = [m0] + m
-    return set(ab_primes)
+    m_0 = min(primes)
+    for comb in itertools.combinations(primes - {m_0}, n):
+        for m in itertools.permutations(comb):
+            if m_0 * np.prod(m[-k + 1:]) < np.prod(m[:k], dtype=np.int64):
+                return [m_0] + list(m)
+
+    raise RuntimeError('failed to get ab_primes!')
 
 
 def get_primes(xy_s):
@@ -56,5 +56,5 @@ def get_primes(xy_s):
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
     factors = [list(r) for r in map(primefac.primefac, diffs)]
     primes_to_skip = set([p for subset in factors for p in subset])
-    primes = get_ab_primes(max(primes_to_skip), n=3, k=2, to_skip=primes_to_skip)  # TODO: choose n,k in another way
+    primes = get_ab_primes(max(primes_to_skip), n=4, k=3, to_skip=primes_to_skip)  # TODO: choose n,k in another way
     return primes
