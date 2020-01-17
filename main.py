@@ -15,7 +15,7 @@ from polymod import PolyMod, Mod
 
 def print_done(start_val):
     elapsed = timer() - start_val
-    print('< done, time elapsed: [{:.2f}] seconds'.format(elapsed))
+    print('< done! time elapsed: [{:.2f}] seconds'.format(elapsed))
 
 
 def print_start(msg):
@@ -25,11 +25,6 @@ def print_start(msg):
 def generate_data():
     # {q1:100,q2:200,q3:300,q4:400}
     # {0:0,1:1,b:2,br:3,bl:4,c:5}
-    inputs = {14, 23, 24, 25, 32, 34, 40, 43, 50, 51, 52}
-    # data = dict(
-    #     [(k, (dict([(i, k) for i in inputs]), random.randint(0, 1)))
-    #      for k in {100, 200, 300, 400}]
-    # )
     data = dict(
         [(k, (dict(), random.randint(0, 1)))
          for k in {100, 200, 300, 400}]
@@ -56,13 +51,6 @@ def f(terms, mod, current_state, inputs, results_out):
     results_out.put((current_state, mod))
 
 
-def collect_shares(shares):
-    y_i = [x for x, _ in shares]  # remainders
-    m_i = [x for _, x in shares]  # co-primes
-    y = mathlib.garner_algorithm(y_i, m_i)
-    return y
-
-
 if __name__ == '__main__':
     import argparse
 
@@ -84,7 +72,7 @@ if __name__ == '__main__':
     start = timer()
 
     ms = get_primes(xy_s)
-    print(f'co-prime sequence is: m0={ms[0]}, m={ms[1:]}')
+    # print(f'co-prime sequence is: m0={ms[0]}, m={ms[1:]}')
 
     product = np.prod(list(ms[1:]), dtype=np.int64)
     Mod.set_mod(int(product))
@@ -110,6 +98,11 @@ if __name__ == '__main__':
         jobs.append(job)
         job.start()
 
+    print_done(start)
+
+    print_start('collecting results')
+    start = timer()
+
     results = list()
     for job in jobs:
         job.join()
@@ -119,7 +112,7 @@ if __name__ == '__main__':
     print(f'next state is: [{next_state}]!')
     print_done(start)
 
-    print_start('state machine drawing')
+    print_start('drawing state machine')
     start = timer()
 
 
@@ -151,5 +144,3 @@ if __name__ == '__main__':
     m.get_graph().draw('diagram.png', prog='dot')
 
     print_done(start)
-
-    start = timer()
