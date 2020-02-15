@@ -9,7 +9,7 @@ from transitions.extensions.states import add_state_features, Tags
 
 ###################################################################################################
 from crr import mathlib
-from crr.generic_functions import get_primes
+from crr.generic_functions import get_ab_share
 from polymod import PolyMod, Mod
 
 
@@ -84,16 +84,17 @@ if __name__ == '__main__':
     start = timer()
 
     # print('p={:s} (mod {:d})'.format(str(p), product))
-
+    initial_state = get_ab_share(2, ms[:])
+    inputs = [get_ab_share(i, ms[:]) for i in [23, 24, 25]]
     jobs = list()
     results_queue = multiprocessing.SimpleQueue()
-    for m in ms[1:]:
+    for m in ms[1:4]:
         Mod.set_mod(m)
         job = multiprocessing.Process(target=f, args=(
             [t.value for t in p.terms],
             m,
-            200,
-            [23, 24, 25],
+            Mod(initial_state),
+            [Mod(i) for i in inputs],
             results_queue))
         jobs.append(job)
         job.start()
@@ -108,8 +109,10 @@ if __name__ == '__main__':
         job.join()
         results += [results_queue.get()]
 
-    next_state = mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])
-    print(f'next state is: [{next_state}]!')
+    Mod.set_mod(ms[0])
+    next_state = Mod(mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results]))
+    print(f'next state is: [{next_state.value}]!')
+
     print_done(start)
 
     print_start('drawing state machine')

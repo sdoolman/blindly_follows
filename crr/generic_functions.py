@@ -1,4 +1,5 @@
 import itertools
+import random
 
 import numpy as np
 import primefac
@@ -36,11 +37,11 @@ def lagrange(x, w, ff):
     return p
 
 
-def get_ab_primes(threshold, n, k, to_skip=None):
+def get_ab_primes(min_max, n, k, to_skip=None):
     if to_skip is None:
         to_skip = set()
     assert k < n
-    generated = [x for x in range(2, threshold) if not [t for t in range(2, x) if not x % t]]
+    generated = [x for x in min_max if not [t for t in range(2, x) if not x % t]]
     primes = set(generated).difference(to_skip)
     m_0 = min(primes)
     for comb in itertools.combinations(primes - {m_0}, n):
@@ -49,6 +50,15 @@ def get_ab_primes(threshold, n, k, to_skip=None):
                 return [m_0] + list(m)
 
     raise RuntimeError('failed to get ab_primes!')
+
+
+def get_ab_share(secret, primes):
+    m_0 = primes[0]
+    q_param = (np.prod(primes[1:4], dtype=np.int64) - secret) // m_0
+    alpha_param = random.randint(1, q_param)
+    result = secret + alpha_param * m_0
+    assert result < np.prod(primes[1:4], dtype=np.int64)
+    return result
 
 
 def get_primes(xy_s):
