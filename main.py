@@ -38,18 +38,31 @@ def generate_data():
     return data
 
 
+def f1(terms, mod, current_state, inputs, results_out):
+    Mod.set_mod(mod)
+    poly = PolyMod(terms)
+    print(f'polynomial is: {str(poly)} (mod {mod})')
+
+    for i in inputs:
+        current_state = poly(current_state + i).value
+
+    # print(f'current state is: {current_state} (mod {mod})')
+    results_out.put((current_state, mod))
+
+
+def f2(terms, mod, current_state, inputs, results_out):
+    Mod.set_mod(mod)
+    poly = PolyMod(terms)
+    print(f'polynomial is: {str(poly)} (mod {mod})')
+
+    for i in inputs:
+        current_state = poly(current_state + i).value
+
+    # print(f'current state is: {current_state} (mod {mod})')
+    results_out.put((current_state, mod))
+
+
 def main1():
-    def f(terms, mod, current_state, inputs, results_out):
-        Mod.set_mod(mod)
-        poly = PolyMod(terms)
-        print(f'polynomial is: {str(poly)} (mod {mod})')
-
-        for i in inputs:
-            current_state = poly(current_state + i).value
-
-        # print(f'current state is: {current_state} (mod {mod})')
-        results_out.put((current_state, mod))
-
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -88,7 +101,7 @@ def main1():
     results_queue = multiprocessing.SimpleQueue()
     for m in ms[1:4]:
         Mod.set_mod(m)
-        job = multiprocessing.Process(target=f, args=(
+        job = multiprocessing.Process(target=f1, args=(
             [t.value for t in p.terms],
             m,
             Mod(initial_state),
@@ -145,17 +158,6 @@ def main1():
 
 
 def main2():
-    def f(terms, mod, current_state, inputs, results_out):
-        Mod.set_mod(mod)
-        poly = PolyMod(terms)
-        print(f'polynomial is: {str(poly)} (mod {mod})')
-
-        for i in inputs:
-            current_state = poly(current_state + i).value
-
-        # print(f'current state is: {current_state} (mod {mod})')
-        results_out.put((current_state, mod))
-
     ms = [3, 11, 13, 17, 19]
     initial_state = get_ab_share(2, ms[:])
     inputs = [get_ab_share(i, ms[:]) for i in [23, 24, 25]]
@@ -163,7 +165,7 @@ def main2():
     results_queue = multiprocessing.SimpleQueue()
     for m in ms[1:4]:
         Mod.set_mod(m)
-        job = multiprocessing.Process(target=f, args=(
+        job = multiprocessing.Process(target=f2, args=(
             None,  # [t.value for t in p.terms],
             m,
             Mod(initial_state),
