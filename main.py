@@ -9,7 +9,7 @@ from transitions.extensions.states import add_state_features, Tags
 
 ###################################################################################################
 from crr import mathlib
-from crr.generic_functions import get_ab_share
+from crr.generic_functions import get_ab_share, get_primes
 from polymod import PolyMod, Mod
 
 
@@ -38,20 +38,18 @@ def generate_data():
     return data
 
 
-def f(terms, mod, current_state, inputs, results_out):
-    Mod.set_mod(mod)
-    poly = PolyMod(terms)
-    print(f'polynomial is: {str(poly)} (mod {mod})')
-    # print(f'polynomial is: {[int(t.value) for t in poly.terms]} (mod {mod})')
+def main1():
+    def f(terms, mod, current_state, inputs, results_out):
+        Mod.set_mod(mod)
+        poly = PolyMod(terms)
+        print(f'polynomial is: {str(poly)} (mod {mod})')
 
-    for i in inputs:
-        current_state = poly(current_state + i).value
+        for i in inputs:
+            current_state = poly(current_state + i).value
 
-    # print(f'current state is: {current_state} (mod {mod})')
-    results_out.put((current_state, mod))
+        # print(f'current state is: {current_state} (mod {mod})')
+        results_out.put((current_state, mod))
 
-
-if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -72,7 +70,7 @@ if __name__ == '__main__':
     start = timer()
 
     ms = get_primes(xy_s)
-    # print(f'co-prime sequence is: m0={ms[0]}, m={ms[1:]}')
+    print(f'co-prime sequence is: m0={ms[0]}, m={ms[1:]}')
 
     product = np.prod(list(ms[1:]), dtype=np.int64)
     Mod.set_mod(int(product))
@@ -118,15 +116,12 @@ if __name__ == '__main__':
     print_start('drawing state machine')
     start = timer()
 
-
     @add_state_features(Tags)
     class CustomStateMachine(Machine):
         pass
 
-
     class Matter(object):
         pass
-
 
     lump = Matter()
     m = CustomStateMachine(
@@ -147,3 +142,36 @@ if __name__ == '__main__':
     m.get_graph().draw('diagram.png', prog='dot')
 
     print_done(start)
+
+
+def main2():
+    def f(terms, mod, current_state, inputs, results_out):
+        Mod.set_mod(mod)
+        poly = PolyMod(terms)
+        print(f'polynomial is: {str(poly)} (mod {mod})')
+
+        for i in inputs:
+            current_state = poly(current_state + i).value
+
+        # print(f'current state is: {current_state} (mod {mod})')
+        results_out.put((current_state, mod))
+
+    ms = [3, 11, 13, 17, 19]
+    initial_state = get_ab_share(2, ms[:])
+    inputs = [get_ab_share(i, ms[:]) for i in [23, 24, 25]]
+    jobs = list()
+    results_queue = multiprocessing.SimpleQueue()
+    for m in ms[1:4]:
+        Mod.set_mod(m)
+        job = multiprocessing.Process(target=f, args=(
+            None,  # [t.value for t in p.terms],
+            m,
+            Mod(initial_state),
+            [Mod(i) for i in inputs],
+            results_queue))
+        jobs.append(job)
+        job.start()
+
+
+if __name__ == '__main__':
+    main2()
