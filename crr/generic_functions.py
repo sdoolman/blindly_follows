@@ -37,27 +37,27 @@ def lagrange(x, w, ff):
     return p
 
 
-def get_ab_primes(min_max, n, k, to_skip=None):
-    if to_skip is None:
-        to_skip = set()
-    assert k < n
-    generated = [x for x in min_max if not [t for t in range(2, x) if not x % t]]
-    primes = set(generated).difference(to_skip)
-    m_0 = min(primes)
-    for comb in itertools.combinations(primes - {m_0}, n):
-        for m in itertools.permutations(comb):
-            if m_0 * np.prod(m[-k + 1:]) < np.prod(m[:k], dtype=np.int64):
-                return [m_0] + list(m)
+def generate_primes(limit):
+    return (p for p in set(x for x in range(2, limit) if not [t for t in range(2, x) if not x % t]))
+
+
+def get_ab_primes(m0, limit, n, k):
+    assert k <= n
+    primes = set(generate_primes(limit))
+    for candidates in sorted(itertools.combinations(primes - {m0}, n)):  # consider using random sample
+        ms = [m0 * c for c in candidates]
+        if m0 * np.prod(ms[-k + 1:]) < np.prod(ms[:k], dtype=np.int64):
+            return [m0] + ms
 
     raise RuntimeError('failed to get ab_primes!')
 
 
 def get_ab_share(secret, primes):
     m_0 = primes[0]
-    q_param = (np.prod(primes[1:4], dtype=np.int64) - secret) // m_0
+    q_param = (np.prod(primes[1:], dtype=np.int64) - secret) // m_0
     alpha_param = random.randint(1, q_param)
     result = secret + alpha_param * m_0
-    assert result < np.prod(primes[1:4], dtype=np.int64)
+    assert result < np.prod(primes[1:], dtype=np.int64)
     return result
 
 
@@ -66,5 +66,6 @@ def get_primes(xy_s):
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
     factors = [list(r) for r in map(primefac.primefac, diffs)]
     primes_to_skip = set([p for subset in factors for p in subset])
-    primes = get_ab_primes(max(primes_to_skip), n=4, k=3, to_skip=primes_to_skip)  # TODO: choose n,k in another way
+    primes = get_ab_primes(range(100, 200), n=4, k=3,
+                           to_skip=primes_to_skip)  # TODO: choose n,k in another way
     return primes

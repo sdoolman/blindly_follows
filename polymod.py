@@ -55,6 +55,12 @@ class Mod:
         else:
             return Mod(self.value * m)
 
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        else:
+            return self.__add__(other)
+
     def __iadd__(self, m):
         return self + m
 

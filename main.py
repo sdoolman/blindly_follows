@@ -9,7 +9,7 @@ from transitions.extensions.states import add_state_features, Tags
 
 ###################################################################################################
 from crr import mathlib
-from crr.generic_functions import get_ab_share, get_primes
+from crr.generic_functions import get_ab_share, get_primes, get_ab_primes
 from polymod import PolyMod, Mod
 
 
@@ -175,5 +175,29 @@ def main2():
         job.start()
 
 
+def main3():
+    def poly(x):
+        return PolyMod([1, 2, 1, 3])(x).value  # 1+2x+x^2+3x^3
+
+    m0 = 41
+    ms = get_ab_primes(m0, 100, 4, 3)  # this should work
+    print(f'ms={ms}')
+    initial_state = 40
+    secret = get_ab_share(initial_state, [m0] + ms)
+    print(f'secret={secret}')
+
+    Mod.set_mod(m0)
+    expected = poly(initial_state)  # only we know the input
+
+    res = list()
+    for m in ms[:3]:
+        Mod.set_mod(m)
+        res += [poly(secret)]
+    Mod.set_mod(m0)
+    recovered = Mod(mathlib.garner_algorithm(res, ms[:3])).value
+    print(f'res={list(zip(res, ms))}, expected={expected}, recovered={recovered}')
+    assert recovered == expected
+
+
 if __name__ == '__main__':
-    main2()
+    main3()
