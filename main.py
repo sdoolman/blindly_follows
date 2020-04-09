@@ -176,24 +176,34 @@ def main2():
 
 
 def main3():
+    class M0(list):
+        def __init__(self, *primes):
+            super(M0, self).__init__(primes)
+
+        @property
+        def value(self):
+            return int(np.prod(self, dtype=np.int64))
+
     def poly(x):
         return PolyMod([1, 2, 1])(x).value  # 1+2x+x^2
 
-    m0 = 23
-    ms = get_ab_primes(m0, 100, 4, 3)  # this should work
+    m0 = M0(2, 3, 5)
+    print(f'm0={m0.value}')
+
+    ms = get_ab_primes(m0, limit=100, n=4, k=3)  # this should work
     print(f'ms={ms}')
     initial_state = 10
-    secret = get_ab_share(initial_state, [m0] + ms[:3])
+    secret = get_ab_share(initial_state, [int(m0.value)] + ms[:3])
     print(f'secret={secret}')
 
-    Mod.set_mod(m0)
-    expected = poly(poly(initial_state))  # only we know the input
+    Mod.set_mod(m0.value)
+    expected = poly(initial_state)  # only we know the input
 
     res = list()
     for m in ms[:3]:
         Mod.set_mod(m)
-        res += [poly(poly(secret))]
-    Mod.set_mod(m0)
+        res += [poly(secret)]
+    Mod.set_mod(m0.value)
     recovered = Mod(mathlib.garner_algorithm(res, ms[:3])).value
     print(f'res={list(zip(res, ms))}, expected={expected}, recovered={recovered}')
     assert recovered == expected
