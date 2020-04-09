@@ -46,8 +46,9 @@ def get_ab_primes(m0, limit, n, k):
     primes = set(generate_primes(limit))
     for candidates in sorted(itertools.combinations(primes - {m0}, n)):  # consider using random sample
         ms = [m0 * c for c in candidates]
-        if m0 * np.prod(ms[-k + 1:]) < np.prod(ms[:k], dtype=np.int64):
-            return [m0] + ms
+        if ms == sorted(ms) and \
+                m0 * np.prod(ms[-k + 1:]) < np.prod(ms[:k], dtype=np.int64):  # sequence is rising and ab
+            return ms
 
     raise RuntimeError('failed to get ab_primes!')
 

@@ -177,22 +177,22 @@ def main2():
 
 def main3():
     def poly(x):
-        return PolyMod([1, 2, 1, 3])(x).value  # 1+2x+x^2+3x^3
+        return PolyMod([1, 2, 1])(x).value  # 1+2x+x^2
 
-    m0 = 41
+    m0 = 23
     ms = get_ab_primes(m0, 100, 4, 3)  # this should work
     print(f'ms={ms}')
-    initial_state = 40
-    secret = get_ab_share(initial_state, [m0] + ms)
+    initial_state = 10
+    secret = get_ab_share(initial_state, [m0] + ms[:3])
     print(f'secret={secret}')
 
     Mod.set_mod(m0)
-    expected = poly(initial_state)  # only we know the input
+    expected = poly(poly(initial_state))  # only we know the input
 
     res = list()
     for m in ms[:3]:
         Mod.set_mod(m)
-        res += [poly(secret)]
+        res += [poly(poly(secret))]
     Mod.set_mod(m0)
     recovered = Mod(mathlib.garner_algorithm(res, ms[:3])).value
     print(f'res={list(zip(res, ms))}, expected={expected}, recovered={recovered}')
