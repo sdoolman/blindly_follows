@@ -1,15 +1,16 @@
 import itertools
 import multiprocessing
 import random
+import string
+import sys
 from timeit import default_timer as timer
 
-import numpy as np
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
 ###################################################################################################
 from crr import mathlib
-from crr.generic_functions import get_ab_share, get_primes, get_ab_primes
+from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, M0
 from polymod import PolyMod, Mod
 
 
@@ -22,44 +23,61 @@ def print_start(msg):
     print('> starting {:s}...'.format(msg))
 
 
+def value(character):
+    whitespace = {
+        ' ': 27,
+        '\n': 28
+    }
+    if character in string.whitespace:
+        return whitespace[character]
+    else:
+        return ord(character) - ord('`')
+
+
 def generate_data():
     # {q1:100,q2:200,q3:300,q4:400}
     # {0:0,1:1,b:2,br:3,bl:4,c:5}
-    data = dict(
-        [(k, (dict(), random.randint(0, 1)))
-         for k in {100, 200, 300, 400}]
-    )
+    # data = dict(
+    #     [(k, (dict(), random.randint(0, 1)))
+    #      for k in {100, 200, 300, 400}]
+    # )
+    #
+    # data[100][0].update({14: 100, 23: 100, 32: 100, 40: 100, 4: 100, 50: 400})
+    # data[200][0].update({10: 200, 23: 300, 34: 200, 43: 200, 1: 200, 52: 200})
+    # data[300][0].update({11: 300, 24: 400, 32: 300, 5: 100, 51: 100})
+    # data[400][0].update({10: 400, 25: 200, 34: 400, 5: 200, 52: 400})
+    data = {
+        k: (dict(), random.randint(0, 1))
+        for k in {0, 100, 200, 300, 400}
+    }
 
-    data[100][0].update({14: 100, 23: 100, 32: 100, 40: 100, 4: 100, 50: 400})
-    data[200][0].update({10: 200, 23: 300, 34: 200, 43: 200, 1: 200, 52: 200})
-    data[300][0].update({11: 300, 24: 400, 32: 300, 5: 100, 51: 100})
-    data[400][0].update({10: 400, 25: 200, 34: 400, 5: 200, 52: 400})
+    data[0][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
+    data[100][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
+    data[200][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
+    data[300][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
+    data[400][0].update({value(c): 400 for c in string.ascii_lowercase + ' \n'})
+
+    data[0][0].update({value('n'): 100})
+    data[100][0].update({value('n'): 100})
+    data[100][0].update({value('a'): 200})
+    data[200][0].update({value('n'): 300})
+    data[300][0].update({value('o'): 400})
+    data[300][0].update({value('n'): 100})
+    data[300][0].update({value('a'): 200})
 
     return data
 
 
-def f1(terms, mod, current_state, inputs, results_out):
+def f1(poly, mod, current_state, inputs, results_out):
     Mod.set_mod(mod)
-    poly = PolyMod(terms)
-    print(f'polynomial is: {str(poly)} (mod {mod})')
 
+    next_state = current_state
     for i in inputs:
-        current_state = poly(current_state + i).value
+        current_state = (next_state + i).value
+        next_state = poly(current_state).value
 
-    # print(f'current state is: {current_state} (mod {mod})')
-    results_out.put((current_state, mod))
-
-
-def f2(terms, mod, current_state, inputs, results_out):
-    Mod.set_mod(mod)
-    poly = PolyMod(terms)
-    print(f'polynomial is: {str(poly)} (mod {mod})')
-
-    for i in inputs:
-        current_state = poly(current_state + i).value
-
-    # print(f'current state is: {current_state} (mod {mod})')
-    results_out.put((current_state, mod))
+    print(f'next state is: {next_state} (mod {mod})')
+    results_out.put((next_state, mod))
 
 
 def main1():
@@ -72,22 +90,27 @@ def main1():
     start = timer()
     transitions = generate_data()
 
-    xy_s = itertools.chain(*[
-        [(src + i, t[0].get(i)) for i in t[0].keys()]
-        for src, t in transitions.items()])
-    xy_s = list(xy_s)
+    xy_s = {x: y for (x, y) in
+            itertools.chain.from_iterable(
+                [(src + i, t[0].get(i)) for i in t[0].keys()]
+                for src, t in transitions.items())}
 
     print_done(start)
 
-    print_start('interpolating polynomial')
+    print_start('ab parameters calculation')
     start = timer()
 
-    ms = get_primes(xy_s)
-    print(f'co-prime sequence is: m0={ms[0]}, m={ms[1:]}')
+    n, k = 4, 3
+    m0, ms = get_ab_params(xy_s)
+    print(f'm0={m0}, ms={ms}')
+    print_done(start)
 
-    product = np.prod(list(ms[1:]), dtype=np.int64)
-    Mod.set_mod(int(product))
-    p = PolyMod.interpolate(xy_s)
+    Mod.set_mod(m0)
+
+    print_start('polynomial interpolation')
+    start = timer()
+    p = PolyMod.interpolate([(x, y) for x, y in xy_s.items()])
+    print(f'p={str(p)}')
 
     print_done(start)
 
@@ -95,14 +118,15 @@ def main1():
     start = timer()
 
     # print('p={:s} (mod {:d})'.format(str(p), product))
-    initial_state = get_ab_share(2, ms[:])
-    inputs = [get_ab_share(i, ms[:]) for i in [23, 24, 25]]
+    initial_state = get_ab_share(100, m0, ms[:k])
+    with open('some_text.txt', 'r') as f:
+        content = f.read()
+    inputs = [get_ab_share(value(c), m0, ms[:]) for c in content]
     jobs = list()
     results_queue = multiprocessing.SimpleQueue()
-    for m in ms[1:4]:
-        Mod.set_mod(m)
+    for m in ms[:k]:
         job = multiprocessing.Process(target=f1, args=(
-            [t.value for t in p.terms],
+            p,
             m,
             Mod(initial_state),
             [Mod(i) for i in inputs],
@@ -120,9 +144,9 @@ def main1():
         job.join()
         results += [results_queue.get()]
 
-    Mod.set_mod(ms[0])
-    next_state = Mod(mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results]))
-    print(f'next state is: [{next_state.value}]!')
+    Mod.set_mod(m0)
+    next_state = Mod(mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])).value
+    print(f'next state is: [{next_state}]!')
 
     print_done(start)
 
@@ -157,52 +181,38 @@ def main1():
     print_done(start)
 
 
-def main2():
-    ms = [3, 11, 13, 17, 19]
-    initial_state = get_ab_share(2, ms[:])
-    inputs = [get_ab_share(i, ms[:]) for i in [23, 24, 25]]
-    jobs = list()
-    results_queue = multiprocessing.SimpleQueue()
-    for m in ms[1:4]:
-        Mod.set_mod(m)
-        job = multiprocessing.Process(target=f2, args=(
-            None,  # [t.value for t in p.terms],
-            m,
-            Mod(initial_state),
-            [Mod(i) for i in inputs],
-            results_queue))
-        jobs.append(job)
-        job.start()
-
-
 def main3():
-    class M0(list):
-        def __init__(self, *primes):
-            super(M0, self).__init__(primes)
+    def successive(x, times):
+        if times == 0:
+            return x
+        # sys.stdout.write(f'({Mod(x).value}, {poly(x).value}),\n')
+        return successive(poly(x).value, times - 1)
 
-        @property
-        def value(self):
-            return int(np.prod(self, dtype=np.int64))
+    sys.setrecursionlimit(1500)
 
-    def poly(x):
-        return PolyMod([1, 2, 1])(x).value  # 1+2x+x^2
-
-    m0 = M0(2, 3, 5)
+    m0 = M0(53, 71, 89)
     print(f'm0={m0.value}')
-
-    ms = get_ab_primes(m0, limit=100, n=4, k=3)  # this should work
+    n, k = 4, 3
+    ms = get_ab_sequence(m0, limit=7000, n=n, k=k)  # this should work
     print(f'ms={ms}')
-    initial_state = 10
-    secret = get_ab_share(initial_state, [int(m0.value)] + ms[:3])
+
+    initial_state = 33
+    print(f'input={initial_state}')
+
+    secret = get_ab_share(initial_state, [m0.value] + ms[:k])
     print(f'secret={secret}')
 
     Mod.set_mod(m0.value)
-    expected = poly(initial_state)  # only we know the input
+    poly = PolyMod.interpolate(
+        [(299, 11), (19, 326), (11, 287), (77, 89), (112, 264), (287, 19), (326, 112), (46, 77), (151, 7), (221, 217),
+         (264, 221), (217, 194), (7, 299), (194, 46), (33, 221), (89, 151)])
+    print(f'poly={str(poly)}')
+    expected = successive(initial_state, 100)  # only we know the input
 
     res = list()
-    for m in ms[:3]:
+    for m in ms[:k]:
         Mod.set_mod(m)
-        res += [poly(secret)]
+        res += [successive(secret, 100)]
     Mod.set_mod(m0.value)
     recovered = Mod(mathlib.garner_algorithm(res, ms[:3])).value
     print(f'res={list(zip(res, ms))}, expected={expected}, recovered={recovered}')
@@ -210,4 +220,4 @@ def main3():
 
 
 if __name__ == '__main__':
-    main3()
+    main1()
