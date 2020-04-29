@@ -13,6 +13,8 @@ from crr import mathlib
 from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, M0
 from polymod import PolyMod, Mod
 
+QUEUE_MAX_SIZE = 100
+
 
 def print_done(start_val):
     elapsed = timer() - start_val
@@ -24,14 +26,15 @@ def print_start(msg):
 
 
 def value(character):
-    whitespace = {
-        ' ': 27,
-        '\n': 28
+    specials = {
+        '.': 27,
+        ' ': 28,
+        '\n': 29,
     }
-    if character in string.whitespace:
-        return whitespace[character]
-    else:
-        return ord(character) - ord('`')
+    if character in specials:
+        return specials[character]
+    elif character in string.ascii_letters:
+        return ord(character.lower()) - ord('`')
 
 
 def generate_data():
@@ -51,11 +54,11 @@ def generate_data():
         for k in {0, 100, 200, 300, 400}
     }
 
-    data[0][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
-    data[100][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
-    data[200][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
-    data[300][0].update({value(c): 0 for c in string.ascii_lowercase + ' \n'})
-    data[400][0].update({value(c): 400 for c in string.ascii_lowercase + ' \n'})
+    data[0][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
+    data[100][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
+    data[200][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
+    data[300][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
+    data[400][0].update({value(c): 400 for c in string.ascii_lowercase + '. \n'})
 
     data[0][0].update({value('n'): 100})
     data[100][0].update({value('n'): 100})
@@ -68,15 +71,19 @@ def generate_data():
     return data
 
 
-def f1(poly, mod, current_state, inputs, results_out):
+def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
     Mod.set_mod(mod)
+    # hist = defaultdict(int)
 
     next_state = current_state
-    for i in inputs:
-        current_state = (next_state + i).value
-        next_state = poly(current_state).value
+    while not (queue_exhausted.is_set() and input_q.empty()):
+        item = input_q.get(block=True)
+        next_state = poly((next_state + item).value).value
 
-    print(f'next state is: {next_state} (mod {mod})')
+        # hist[item.value] += 1
+        input_q.task_done()
+
+    print(f'mod=[{mod}], next state=[{next_state}], hist=[{dict()}]')
     results_out.put((next_state, mod))
 
 
@@ -114,35 +121,52 @@ def main1():
 
     print_done(start)
 
-    print_start('assigning jobs')
+    print_start('jobs assignment')
     start = timer()
 
     # print('p={:s} (mod {:d})'.format(str(p), product))
     initial_state = get_ab_share(100, m0, ms[:k])
-    with open('some_text.txt', 'r') as f:
-        content = f.read()
-    inputs = [get_ab_share(value(c), m0, ms[:]) for c in content]
-    jobs = list()
-    results_queue = multiprocessing.SimpleQueue()
-    for m in ms[:k]:
-        job = multiprocessing.Process(target=f1, args=(
+    processes = dict()
+    results_q = multiprocessing.SimpleQueue()
+    exhausted = multiprocessing.Event()
+    for mod in ms[:k]:
+        Mod.set_mod(mod)
+        input_q = multiprocessing.JoinableQueue(maxsize=QUEUE_MAX_SIZE)
+        process = multiprocessing.Process(target=f1, args=(
             p,
-            m,
+            mod,
             Mod(initial_state),
-            [Mod(i) for i in inputs],
-            results_queue))
-        jobs.append(job)
-        job.start()
+            input_q,
+            results_q,
+            exhausted))
+        processes[mod] = (process, input_q)
+        process.start()
 
     print_done(start)
 
-    print_start('collecting results')
+    print_start('file parsing')
     start = timer()
 
+    # with open('C:\\Users\\stavd\\Desktop\\some_text.txt') as fp:
+    with open('some_text.txt') as fp:
+        for i, line in enumerate(fp):
+            sys.stdout.write(f'{i}\r')
+            for c in line:
+                for mod, (_, input_q) in processes.items():
+                    Mod.set_mod(mod)
+                    input_q.put(Mod(get_ab_share(value(c), m0, ms[:])), block=True)
+
+    print_done(start)
+
+    print_start('final results collection')
+    start = timer()
+
+    exhausted.set()
     results = list()
-    for job in jobs:
-        job.join()
-        results += [results_queue.get()]
+    for mod, (_, input_q) in processes.items():
+        sys.stdout.write(f'waiting for [{mod}] to complete...\r')
+        input_q.join()
+        results += [results_q.get()]
 
     Mod.set_mod(m0)
     next_state = Mod(mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])).value
@@ -150,7 +174,7 @@ def main1():
 
     print_done(start)
 
-    print_start('drawing state machine')
+    print_start('state machine drawing')
     start = timer()
 
     @add_state_features(Tags)
@@ -161,7 +185,7 @@ def main1():
         pass
 
     lump = Matter()
-    m = CustomStateMachine(
+    fsm = CustomStateMachine(
         model=lump,
         states=[
             {'name': str(src), 'tags': ['out: {:d}'.format(trans[1])]} for src, trans in transitions.items()
@@ -176,7 +200,7 @@ def main1():
         initial=str(200),
         show_state_attributes=True
     )
-    m.get_graph().draw('diagram.png', prog='dot')
+    fsm.get_graph().draw('diagram.png', prog='dot')
 
     print_done(start)
 
@@ -199,13 +223,13 @@ def main3():
     initial_state = 33
     print(f'input={initial_state}')
 
-    secret = get_ab_share(initial_state, [m0.value] + ms[:k])
+    secret = get_ab_share(initial_state, m0.value, ms[:k])
     print(f'secret={secret}')
 
     Mod.set_mod(m0.value)
     poly = PolyMod.interpolate(
-        [(299, 11), (19, 326), (11, 287), (77, 89), (112, 264), (287, 19), (326, 112), (46, 77), (151, 7), (221, 217),
-         (264, 221), (217, 194), (7, 299), (194, 46), (33, 221), (89, 151)])
+        [(299, 11), (19, 326), (11, 287), (77, 89), (112, 264), (287, 19), (326, 112), (46, 77), (151, 7),
+         (221, 217), (264, 221), (217, 194), (7, 299), (194, 46), (33, 221), (89, 151)])
     print(f'poly={str(poly)}')
     expected = successive(initial_state, 100)  # only we know the input
 
