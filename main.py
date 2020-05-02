@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import itertools
 import multiprocessing
 import random
@@ -5,14 +6,16 @@ import string
 import sys
 from timeit import default_timer as timer
 
+import numpy as np
+from matplotlib import pyplot as plt
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
-###################################################################################################
 from crr import mathlib
 from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, M0
 from polymod import PolyMod, Mod
 
+###################################################################################################
 QUEUE_MAX_SIZE = 100
 
 
@@ -73,17 +76,30 @@ def generate_data():
 
 def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
     Mod.set_mod(mod)
-    # hist = defaultdict(int)
+    freq = np.memmap(f'{mod}.dat', dtype=np.uint8, mode='w+', shape=mod)
 
     next_state = current_state
     while not (queue_exhausted.is_set() and input_q.empty()):
         item = input_q.get(block=True)
-        next_state = poly((next_state + item).value).value
+        freq[item.value] += 1
 
-        # hist[item.value] += 1
+        next_state = poly((next_state + item).value).value
         input_q.task_done()
 
-    print(f'mod=[{mod}], next state=[{next_state}], hist=[{dict()}]')
+    freq.flush()
+
+    max_freq = np.max(freq)
+    fig, (ax1, ax2) = plt.subplots(2)
+    fig.suptitle(f'mod={mod}')
+    ax1.plot(np.arange(mod), freq, 'b.', markersize=1)
+    ax1.set_yticks(np.arange(0, max_freq + 1, 1))
+    ax2.hist(freq)
+    ax2.set_yscale("log")
+    ax2.set_xticks(np.arange(0, max_freq + 1, 1))
+    plt.savefig(f'{mod}.png')
+
+    print(f'mod=[{mod}], next state=[{next_state}]')
+
     results_out.put((next_state, mod))
 
 
