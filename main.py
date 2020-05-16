@@ -7,7 +7,6 @@ import sys
 from timeit import default_timer as timer
 
 import numpy as np
-import matplotlib
 from matplotlib import pyplot as plt
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
@@ -18,7 +17,7 @@ from polymod import PolyMod, Mod
 
 ###################################################################################################
 QUEUE_MAX_SIZE = 100
-matplotlib.use('Agg')
+
 
 def print_done(start_val):
     elapsed = timer() - start_val
