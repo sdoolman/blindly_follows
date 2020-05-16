@@ -8,7 +8,6 @@ from timeit import default_timer as timer
 
 import matplotlib
 import numpy as np
-from matplotlib import pyplot as plt
 
 matplotlib.use('Agg')
 from transitions.extensions import GraphMachine as Machine
@@ -93,6 +92,7 @@ def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
 
     print(f'mod=[{mod}], generating plot...')
 
+    from matplotlib import pyplot as plt
     max_freq = np.max(freq)
     fig, (ax1, ax2) = plt.subplots(2)
     fig.suptitle(f'mod={mod}')
