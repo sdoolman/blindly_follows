@@ -16,7 +16,7 @@ from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, 
 from polymod import PolyMod, Mod
 
 ###################################################################################################
-QUEUE_MAX_SIZE = 100
+QUEUE_MAX_SIZE = 1024
 
 
 def print_done(start_val):
@@ -76,7 +76,7 @@ def generate_data():
 
 def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
     Mod.set_mod(mod)
-    freq = np.memmap(f'{mod}.dat', dtype=np.uint8, mode='w+', shape=mod)
+    freq = np.memmap(f'{mod}.dat', dtype=np.uint64, mode='w+', shape=mod)
 
     next_state = current_state
     while not (queue_exhausted.is_set() and input_q.empty()):
@@ -88,12 +88,14 @@ def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
 
     freq.flush()
 
+    print(f'mod=[{mod}], generating plot...')
+
     max_freq = np.max(freq)
     fig, (ax1, ax2) = plt.subplots(2)
     fig.suptitle(f'mod={mod}')
     ax1.plot(np.arange(mod), freq, 'b.', markersize=1)
     ax1.set_yticks(np.arange(0, max_freq + 1, 1))
-    ax2.hist(freq)
+    ax2.hist(freq, histtype='step')
     ax2.set_yscale("log")
     ax2.set_xticks(np.arange(0, max_freq + 1, 1))
     plt.savefig(f'{mod}.png')
@@ -164,13 +166,18 @@ def main1():
     start = timer()
 
     # with open('C:\\Users\\stavd\\Desktop\\some_text.txt') as fp:
-    with open('some_text.txt') as fp:
-        for i, line in enumerate(fp):
-            sys.stdout.write(f'{i}\r')
-            for c in line:
-                for mod, (_, input_q) in processes.items():
-                    Mod.set_mod(mod)
-                    input_q.put(Mod(get_ab_share(value(c), m0, ms[:])), block=True)
+    import mmap
+    with open('some_text.txt', 'r') as f:
+        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        while mm.tell() != mm.size():
+            chunk = mm.read(QUEUE_MAX_SIZE // 10)
+            shares = [get_ab_share(value(c), m0, ms[:]) for c in chunk.decode('ascii')]
+            for mod, (_, input_q) in processes.items():
+                Mod.set_mod(mod)
+                for share in shares:
+                    input_q.put(Mod(share), block=True)
+            sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
+        mm.close()
 
     print_done(start)
 

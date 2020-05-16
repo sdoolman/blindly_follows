@@ -47,13 +47,12 @@ def get_ab_sequence(m0, limit, n, k):
     from sys import stdout
     assert k <= n and k <= len(m0) <= n
     primes = generate_primes(limit, start_from=m0.value // min(m0))
-    # random.shuffle(m0)  # maybe improvement?
-    for i, candidates in enumerate((itertools.combinations(primes, n))):  # random sampling could be quicker
-        stdout.write(f'{i:,}\r')  # indicate iteration number
-        ms = [p * c for p, c in zip(m0, candidates)]
-        if m0.value < min(ms) and ms == sorted(ms) and \
-                m0.value * np.prod(ms[-k + 1:], dtype=np.int64) < np.prod(ms[:k], dtype=np.int64):  # is ab increasing
-            return ms
+    for i, candidates in enumerate((itertools.combinations(primes, n))):  # 'choose' behavior
+        stdout.write(f'{i:,}\r')  # iteration number
+        ms = sorted(np.multiply(m0, candidates))
+        if m0.value < min(ms) and \
+                np.multiply(m0.value, np.prod(ms[-k + 1:], dtype=np.int64)) < np.prod(ms[:k], dtype=np.int64):
+            return ms  # array is ab compliant
 
     raise Exception('failed to get ab_primes - consider a higher limit')
 
@@ -79,7 +78,7 @@ def get_ab_params(xy_s):
     xs = xy_s.keys()
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
     factors = set(itertools.chain.from_iterable([primefac.primefac(d) for d in diffs]))
-    n, k = 4, 3
+    n, k = 3, 3
     m0 = M0(*itertools.islice((p for p in generate_primes(300) if p not in factors), k))
     ms = get_ab_sequence(m0, limit=100 * 1000, n=n, k=k)  # TODO: choose n,k in another way
     return m0.value, ms
