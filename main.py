@@ -6,8 +6,11 @@ import string
 import sys
 from timeit import default_timer as timer
 
+import matplotlib
 import numpy as np
 from matplotlib import pyplot as plt
+
+matplotlib.use('Agg')
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
