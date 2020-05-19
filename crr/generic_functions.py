@@ -58,10 +58,13 @@ def get_ab_sequence(m0, limit, n, k):
 
 
 def get_ab_share(secret, m0, co_primes):
-    q_param = (np.prod(co_primes, dtype=np.int64) - secret) // m0
+    if not hasattr(get_ab_share, 'prod'):
+        get_ab_share.prod = np.prod(co_primes, dtype=np.int64)
+
+    q_param = (get_ab_share.prod - secret) // m0
     alpha_param = random.randint(1, q_param)
     result = secret + alpha_param * m0
-    assert result < np.prod(co_primes, dtype=np.int64)
+    assert result < get_ab_share.prod
     return result
 
 
