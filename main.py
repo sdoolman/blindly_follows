@@ -18,6 +18,7 @@ from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, 
 from polymod import PolyMod, Mod
 
 ###################################################################################################
+RANDOM_INPUT_LENGTH = 20 * 1024 ** 2
 QUEUE_MAX_SIZE = 1024
 
 
@@ -40,6 +41,8 @@ def value(character):
         return specials[character]
     elif character in string.ascii_letters:
         return ord(character.lower()) - ord('`')
+    else:
+        raise Exception(f'failed to find value of [{character}] - consider adding support for it')
 
 
 def generate_data():
@@ -128,7 +131,7 @@ def main1():
     print_start('ab parameters calculation')
     start = timer()
 
-    n, k = 4, 3
+    n, k = 3, 3
     m0, ms = get_ab_params(xy_s)
     print(f'm0={m0}, ms={ms}')
     print_done(start)
@@ -169,18 +172,28 @@ def main1():
     start = timer()
 
     # with open('C:\\Users\\stavd\\Desktop\\some_text.txt') as fp:
-    import mmap
-    with open('some_text.txt', 'r') as f:
-        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-        while mm.tell() != mm.size():
-            chunk = mm.read(QUEUE_MAX_SIZE // 10)
-            shares = [get_ab_share(value(c), m0, ms[:]) for c in chunk.decode('ascii')]
-            for mod, (_, input_q) in processes.items():
-                Mod.set_mod(mod)
-                for share in shares:
-                    input_q.put(Mod(share), block=True)
-            sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
-        mm.close()
+    # import mmap
+    # with open('some_text.txt', 'r') as f:
+    #     mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+    #     while mm.tell() != mm.size():
+    #         chunk = mm.read(QUEUE_MAX_SIZE // 10)
+    #         shares = [get_ab_share(value(c), m0, ms[:]) for c in chunk.decode('ascii')]
+    #         for mod, (_, input_q) in processes.items():
+    #             Mod.set_mod(mod)
+    #             for share in shares:
+    #                 input_q.put(Mod(share), block=True)
+    #         sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
+    #     mm.close()
+    sequence_length = 100
+    sequences = RANDOM_INPUT_LENGTH // sequence_length
+    for i in range(sequences):
+        random_chars = random.choices(string.ascii_letters + '. ', k=random.randrange(sequence_length))
+        shares = [get_ab_share(value(c), m0, ms[:k]) for c in random_chars]
+        for mod, (_, input_q) in processes.items():
+            Mod.set_mod(mod)
+            for share in shares:
+                input_q.put(Mod(share), block=True)
+        sys.stdout.write(f'{i}/{sequences}\r')
 
     print_done(start)
 
