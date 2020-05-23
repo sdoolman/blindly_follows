@@ -27,7 +27,7 @@ def f(field_modulo, unknown_shares_file, *known_shares_files):
             secrets[Mod(res).value] += 1
 
         fp = np.memmap(f'{field_modulo}.dat', dtype=np.int64, mode='w+', shape=np.size(secrets))
-        fp = secrets[:]
+        fp[:] = secrets[:]  # copy all values
         fp.flush()
         sys.exit()
 
