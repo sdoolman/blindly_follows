@@ -149,7 +149,7 @@ def main1():
     start = timer()
 
     # print('p={:s} (mod {:d})'.format(str(p), product))
-    initial_state = get_ab_share(100, m0, ms[:k])
+    initial_state = get_ab_share(1, m0, ms[:k])
     processes = dict()
     results_q = multiprocessing.SimpleQueue()
     exhausted = multiprocessing.Event()

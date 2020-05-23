@@ -51,7 +51,7 @@ def get_ab_sequence(m0, limit, n, k):
         stdout.write(f'{i:,}\r')  # iteration number
         ms = sorted(np.multiply(m0, candidates).tolist())
         if m0.value < min(ms) and \
-                np.multiply(m0.value, np.prod(ms[-k + 1:], dtype=np.int64)) < np.prod(ms[:k], dtype=np.int64):
+                m0.value * np.prod(ms[-k + 1:]) < np.prod(ms[:k], dtype=np.int64):
             return ms  # array is ab compliant
 
     raise Exception('failed to get ab_primes - consider a higher limit')
