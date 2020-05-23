@@ -4,7 +4,7 @@ import string
 from sys import stdout
 
 LINE_LENGTH = 100
-FILE_LENGTH = 20 * 1024 ** 2
+FILE_LENGTH = 50 * 1024 ** 2
 
 number_of_lines = FILE_LENGTH // LINE_LENGTH
 with open('some_text.txt', 'w') as f:

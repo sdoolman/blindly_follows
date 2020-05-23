@@ -18,7 +18,7 @@ from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, 
 from polymod import PolyMod, Mod
 
 ###################################################################################################
-RANDOM_INPUT_LENGTH = 20 * 1024 ** 2
+RANDOM_INPUT_LENGTH = 200 * 1024 ** 2
 QUEUE_MAX_SIZE = 1024
 
 
