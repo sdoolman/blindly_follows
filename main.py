@@ -1,9 +1,13 @@
 #!/usr/bin/python3
+import hashlib
 import itertools
+import json
 import multiprocessing
+import pickle
 import random
 import string
 import sys
+from datetime import datetime
 from timeit import default_timer as timer
 
 import matplotlib
@@ -14,7 +18,7 @@ from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
 from crr import mathlib
-from crr.generic_functions import get_ab_share, get_ab_params, get_ab_sequence, M0
+from crr.generic_functions import get_ab_share
 from polymod import PolyMod, Mod
 
 ###################################################################################################
@@ -101,7 +105,7 @@ def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
     fig.suptitle(f'mod={mod}')
     ax1.plot(np.arange(mod), freq, 'b.', markersize=1)
     ax1.set_yticks(np.arange(0, max_freq + 1, 1))
-    ax2.hist(freq, histtype='step')
+    ax2.hist(freq)
     ax2.set_yscale("log")
     ax2.set_xticks(np.arange(0, max_freq + 1, 1))
     plt.savefig(f'{mod}.png')
@@ -132,7 +136,7 @@ def main1():
     start = timer()
 
     n, k = 3, 3
-    m0, ms = get_ab_params(xy_s)
+    m0, ms = 257, [263, 269, 271]  # get_ab_params(xy_s)
     print(f'm0={m0}, ms={ms}')
     print_done(start)
 
@@ -140,7 +144,13 @@ def main1():
 
     print_start('polynomial interpolation')
     start = timer()
-    p = PolyMod.interpolate([(x, y) for x, y in xy_s.items()])
+    try:
+        with open('p.bin', 'rb') as f:
+            p = pickle.load(f)
+    except FileNotFoundError:
+        p = PolyMod.interpolate([(x, y) for x, y in xy_s.items()])
+        with open('p.bin', 'wb') as f:
+            pickle.dump(p, f)
     print(f'p={str(p)}')
 
     print_done(start)
@@ -149,7 +159,7 @@ def main1():
     start = timer()
 
     # print('p={:s} (mod {:d})'.format(str(p), product))
-    initial_state = get_ab_share(1, m0, ms[:k])
+    initial_state = 0
     processes = dict()
     results_q = multiprocessing.SimpleQueue()
     exhausted = multiprocessing.Event()
@@ -184,11 +194,11 @@ def main1():
     #                 input_q.put(Mod(share), block=True)
     #         sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
     #     mm.close()
-    sequence_length = 100
-    sequences = RANDOM_INPUT_LENGTH // sequence_length
+    sequence_length = 1  # 100
+    sequences = 1  # RANDOM_INPUT_LENGTH // sequence_length
     for i in range(sequences):
-        random_chars = random.choices(string.ascii_letters + '. ', k=random.randrange(sequence_length))
-        shares = [get_ab_share(value(c), m0, ms[:k]) for c in random_chars]
+        random_chars = random.choices(string.ascii_lowercase + '. ', k=random.randrange(sequence_length))
+        shares = [get_ab_share(value(c), m0, ms[:k]) for c in ['n']]  # random_chars]
         for mod, (_, input_q) in processes.items():
             Mod.set_mod(mod)
             for share in shares:
@@ -244,43 +254,70 @@ def main1():
     print_done(start)
 
 
+def main2():
+    m0 = 11 * 13 * 17
+    ms = [17 * 223, 13 * 227, 11 * 229]
+    freq = {
+        m: np.zeros(m) for m in ms
+    }
+    expected = hashlib.sha256()
+    actual = hashlib.sha256()
+    for _ in range(10 ** 6):
+        i = random.randint(1, 10)
+        expected.update(chr(i).encode())
+        share = get_ab_share(i, m0, ms)
+        shares = list()
+        for m in ms:
+            Mod.set_mod(m)
+            v = PolyMod([2, 3])(share).value
+            shares += [v]
+            freq[m][v] += 1
+        from crr.mathlib import garner_algorithm
+        Mod.set_mod(m0)
+        v = ((Mod(garner_algorithm(shares, ms)) - 2) * Mod(3).inverse()).value
+        actual.update(chr(v).encode())
+    from matplotlib import pyplot as plt
+    for m in freq:
+        max_freq = np.max(freq[m])
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle(f'mod={m}')
+        ax1.plot(np.arange(m), freq[m], 'b.', markersize=1)
+        ax1.set_yticks(np.arange(0, max_freq + 1, 100))
+        ax2.hist(freq[m])
+        ax2.set_yscale("log")
+        ax2.set_xticks(np.arange(0, max_freq + 1, 100))
+        plt.savefig(f'{m}.png')
+        plt.close()
+
+    print(f'expected=[{expected.hexdigest()}]\n  actual=[{actual.hexdigest()}]')
+
+
 def main3():
-    def successive(x, times):
-        if times == 0:
-            return x
-        # sys.stdout.write(f'({Mod(x).value}, {poly(x).value}),\n')
-        return successive(poly(x).value, times - 1)
+    m0 = 11 * 13 * 17
+    ms = [17 * 223, 13 * 227, 11 * 229]
 
-    sys.setrecursionlimit(1500)
+    inp = 14
+    share = get_ab_share(inp, m0, ms)
+    shares = list()
 
-    m0 = M0(53, 71, 89)
-    print(f'm0={m0.value}')
-    n, k = 4, 3
-    ms = get_ab_sequence(m0, limit=7000, n=n, k=k)  # this should work
-    print(f'ms={ms}')
-
-    initial_state = 33
-    print(f'input={initial_state}')
-
-    secret = get_ab_share(initial_state, m0.value, ms[:k])
-    print(f'secret={secret}')
-
-    Mod.set_mod(m0.value)
-    poly = PolyMod.interpolate(
-        [(299, 11), (19, 326), (11, 287), (77, 89), (112, 264), (287, 19), (326, 112), (46, 77), (151, 7),
-         (221, 217), (264, 221), (217, 194), (7, 299), (194, 46), (33, 221), (89, 151)])
-    print(f'poly={str(poly)}')
-    expected = successive(initial_state, 100)  # only we know the input
-
-    res = list()
-    for m in ms[:k]:
+    for m in ms[:-1]:
         Mod.set_mod(m)
-        res += [successive(secret, 100)]
-    Mod.set_mod(m0.value)
-    recovered = Mod(mathlib.garner_algorithm(res, ms[:3])).value
-    print(f'res={list(zip(res, ms))}, expected={expected}, recovered={recovered}')
-    assert recovered == expected
+        shares += [Mod(share).value]
+
+    freq = np.zeros(ms[-1])
+    for i in range(ms[-1]):
+        Mod.set_mod(ms[-1])
+        shares += [Mod(i).value]
+        Mod.set_mod(m0)
+        from crr.mathlib import garner_algorithm
+        v = Mod(garner_algorithm(shares, ms)).value
+        freq[v] += 1
+        shares.pop()
+
+    with open(f'{datetime.now().strftime("%H%M%S")}.json', 'w') as f:
+        json.dump(freq.tolist(), f)
 
 
 if __name__ == '__main__':
-    main1()
+    main3()
+    sys.exit(0)

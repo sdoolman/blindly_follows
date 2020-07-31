@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 import itertools
 #######################################################################################################################
-import sys
 from sys import stdout
 
 import numpy as np
@@ -26,10 +25,9 @@ def f(field_modulo, unknown_shares_file, *known_shares_files):
             res = garner_algorithm(shares_prod + (share,), known_mods + (unknown_mod,))
             secrets[Mod(res).value] += 1
 
-        fp = np.memmap(f'{field_modulo}.dat', dtype=np.int64, mode='w+', shape=np.size(secrets))
-        fp[:] = secrets[:]  # copy all values
-        fp.flush()
-        sys.exit()
+    fp = np.memmap(f'{field_modulo}.dat', dtype=np.int64, mode='w+', shape=np.size(secrets))
+    fp[:] = secrets[:]  # copy all values
+    fp.flush()
 
 
 if __name__ == '__main__':
