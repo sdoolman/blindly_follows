@@ -84,11 +84,9 @@ class M0(list):
         return int(np.prod(self, dtype=np.int64))
 
 
-def get_ab_params(xy_s):
+def get_mignotte_params(xy_s):
     xs = xy_s.keys()
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
     factors = set(itertools.chain.from_iterable([primefac.primefac(d) for d in diffs]))
     n, k = 3, 3
-    m0 = M0(*itertools.islice((p for p in generate_primes(300) if p not in factors), k))
-    ms = get_ab_sequence(m0, limit=100 * 1000, n=n, k=k)  # TODO: choose n,k in another way
-    return m0.value, ms
+    return list(itertools.islice((p for p in generate_primes(300) if p not in factors), k))

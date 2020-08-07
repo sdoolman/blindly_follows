@@ -18,7 +18,7 @@ from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
 from crr import mathlib
-from crr.generic_functions import get_ab_share
+from crr.generic_functions import get_ab_share, get_mignotte_params
 from polymod import PolyMod, Mod
 
 ###################################################################################################
@@ -85,32 +85,15 @@ def generate_data():
 
 def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
     Mod.set_mod(mod)
-    freq = np.memmap(f'{mod}.dat', dtype=np.uint64, mode='w+', shape=mod)
 
     next_state = current_state
     while not (queue_exhausted.is_set() and input_q.empty()):
         item = input_q.get(block=True)
-        freq[item.value] += 1
-
+        print(f'[{mod}] item=[{item}]')
         next_state = poly((next_state + item).value).value
         input_q.task_done()
 
-    freq.flush()
-
-    print(f'mod=[{mod}], generating plot...')
-
-    from matplotlib import pyplot as plt
-    max_freq = np.max(freq)
-    fig, (ax1, ax2) = plt.subplots(2)
-    fig.suptitle(f'mod={mod}')
-    ax1.plot(np.arange(mod), freq, 'b.', markersize=1)
-    ax1.set_yticks(np.arange(0, max_freq + 1, 1))
-    ax2.hist(freq)
-    ax2.set_yscale("log")
-    ax2.set_xticks(np.arange(0, max_freq + 1, 1))
-    plt.savefig(f'{mod}.png')
-
-    print(f'mod=[{mod}], next state=[{next_state}]')
+    print(f'[{mod}] next state=[{next_state}]')
 
     results_out.put((next_state, mod))
 
@@ -132,18 +115,18 @@ def main1():
 
     print_done(start)
 
-    print_start('ab parameters calculation')
+    print_start('mignotte parameters calculation')
     start = timer()
 
     n, k = 3, 3
-    m0, ms = 257, [263, 269, 271]  # get_ab_params(xy_s)
-    print(f'm0={m0}, ms={ms}')
+    ms = get_mignotte_params(xy_s)
+    print(f'ms={ms}')
     print_done(start)
-
-    Mod.set_mod(m0)
 
     print_start('polynomial interpolation')
     start = timer()
+
+    Mod.set_mod(int(np.prod(ms, dtype=np.int64)))
     try:
         with open('p.bin', 'rb') as f:
             p = pickle.load(f)
@@ -194,16 +177,12 @@ def main1():
     #                 input_q.put(Mod(share), block=True)
     #         sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
     #     mm.close()
-    sequence_length = 1  # 100
-    sequences = 1  # RANDOM_INPUT_LENGTH // sequence_length
-    for i in range(sequences):
-        random_chars = random.choices(string.ascii_lowercase + '. ', k=random.randrange(sequence_length))
-        shares = [get_ab_share(value(c), m0, ms[:k]) for c in ['n']]  # random_chars]
-        for mod, (_, input_q) in processes.items():
-            Mod.set_mod(mod)
-            for share in shares:
-                input_q.put(Mod(share), block=True)
-        sys.stdout.write(f'{i}/{sequences}\r')
+    inputs = [value(c) for c in 'nano']
+    for mod, (_, input_q) in processes.items():
+        Mod.set_mod(mod)
+        for i in inputs:
+            input_q.put(Mod(i), block=True)
+        # sys.stdout.write(f'{i}/{sequences}\r')
 
     print_done(start)
 
@@ -217,8 +196,7 @@ def main1():
         input_q.join()
         results += [results_q.get()]
 
-    Mod.set_mod(m0)
-    next_state = Mod(mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])).value
+    next_state = mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])
     print(f'next state is: [{next_state}]!')
 
     print_done(start)
@@ -319,5 +297,5 @@ def main3():
 
 
 if __name__ == '__main__':
-    main3()
+    main1()
     sys.exit(0)
