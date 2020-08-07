@@ -22,7 +22,7 @@ from crr.generic_functions import get_ab_share, get_mignotte_params
 from polymod import PolyMod, Mod
 
 ###################################################################################################
-RANDOM_INPUT_LENGTH = 200 * 1024 ** 2
+RANDOM_INPUT_LENGTH = 1 * 1024 ** 2
 QUEUE_MAX_SIZE = 1024
 
 
@@ -89,8 +89,8 @@ def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
     next_state = current_state
     while not (queue_exhausted.is_set() and input_q.empty()):
         item = input_q.get(block=True)
-        print(f'[{mod}] item=[{item}]')
-        next_state = poly((next_state + item).value).value
+        # print(f'[{mod}] item=[{item}]')
+        next_state = poly(next_state + item).value  # modulo will already be applied here
         input_q.task_done()
 
     print(f'[{mod}] next state=[{next_state}]')
@@ -152,7 +152,7 @@ def main1():
         process = multiprocessing.Process(target=f1, args=(
             p,
             mod,
-            Mod(initial_state),
+            initial_state,
             input_q,
             results_q,
             exhausted))
@@ -164,26 +164,16 @@ def main1():
     print_start('file parsing')
     start = timer()
 
-    # with open('C:\\Users\\stavd\\Desktop\\some_text.txt') as fp:
-    # import mmap
-    # with open('some_text.txt', 'r') as f:
-    #     mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-    #     while mm.tell() != mm.size():
-    #         chunk = mm.read(QUEUE_MAX_SIZE // 10)
-    #         shares = [get_ab_share(value(c), m0, ms[:]) for c in chunk.decode('ascii')]
-    #         for mod, (_, input_q) in processes.items():
-    #             Mod.set_mod(mod)
-    #             for share in shares:
-    #                 input_q.put(Mod(share), block=True)
-    #         sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
-    #     mm.close()
-    inputs = [value(c) for c in 'nano']
-    for mod, (_, input_q) in processes.items():
-        Mod.set_mod(mod)
-        for i in inputs:
-            input_q.put(Mod(i), block=True)
-        # sys.stdout.write(f'{i}/{sequences}\r')
-
+    sequence_length = 100
+    sequences = RANDOM_INPUT_LENGTH // sequence_length
+    for si in range(sequences):
+        random_chars = random.choices(string.ascii_lowercase + '. ', k=random.randrange(sequence_length))
+        inputs = [value(c) for c in random_chars]
+        for mod, (_, input_q) in processes.items():
+            Mod.set_mod(mod)
+            for i in inputs:
+                input_q.put(i, block=True)
+        sys.stdout.write(f'{si}/{sequences}\r')
     print_done(start)
 
     print_start('final results collection')
