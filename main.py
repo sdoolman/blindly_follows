@@ -168,7 +168,7 @@ def main1():
     sequences = RANDOM_INPUT_LENGTH // sequence_length
     for si in range(sequences):
         random_chars = random.choices(string.ascii_lowercase + '. ', k=random.randrange(sequence_length))
-        inputs = [value(c) for c in random_chars]
+        inputs = [value(c) for c in (random_chars if random.randint(0, 100) != 0 else 'nano')]
         for mod, (_, input_q) in processes.items():
             Mod.set_mod(mod)
             for i in inputs:
