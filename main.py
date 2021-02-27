@@ -6,24 +6,23 @@ import multiprocessing
 import pickle
 import random
 import string
-import sys
 from datetime import datetime
+from sys import stdout
 from timeit import default_timer as timer
 
 import matplotlib
 import numpy as np
-
-matplotlib.use('Agg')
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
-from crr import mathlib
-from crr.generic_functions import get_ab_share
+from crr.generic_functions import get_ab_share, get_mignotte_params
+from crr.mathlib import garner_algorithm
 from polymod import PolyMod, Mod
 
-###################################################################################################
-RANDOM_INPUT_LENGTH = 200 * 1024 ** 2
-QUEUE_MAX_SIZE = 1024
+matplotlib.use('Agg')
+
+RANDOM_INPUT_LENGTH = 2 ** 10
+QUEUE_MAX_SIZE = 100
 
 
 def print_done(start_val):
@@ -35,18 +34,21 @@ def print_start(msg):
     print('> starting {:s}...'.format(msg))
 
 
-def value(character):
-    specials = {
-        '.': 27,
-        ' ': 28,
-        '\n': 29,
-    }
-    if character in specials:
-        return specials[character]
-    elif character in string.ascii_letters:
-        return ord(character.lower()) - ord('`')
-    else:
-        raise Exception(f'failed to find value of [{character}] - consider adding support for it')
+def encode(character):
+    def encode_inner():
+        specials = {
+            '.': 27,
+            ' ': 28,
+            '\n': 29,
+        }
+        if character in specials:
+            return specials[character]
+        elif character in string.ascii_letters:
+            return ord(character.lower()) - ord('`')
+        else:
+            raise Exception(f'failed to find value of [{character}] - consider adding support for it')
+
+    return encode_inner() * 2
 
 
 def generate_data():
@@ -63,59 +65,41 @@ def generate_data():
     # data[400][0].update({10: 400, 25: 200, 34: 400, 5: 200, 52: 400})
     data = {
         k: (dict(), random.randint(0, 1))
-        for k in {0, 100, 200, 300, 400}
+        for k in {100, 200, 300, 400, 500}
     }
 
-    data[0][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
-    data[100][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
-    data[200][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
-    data[300][0].update({value(c): 0 for c in string.ascii_lowercase + '. \n'})
-    data[400][0].update({value(c): 400 for c in string.ascii_lowercase + '. \n'})
+    data[100][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
+    data[200][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
+    data[300][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
+    data[400][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
+    data[500][0].update({encode(c): 500 for c in string.ascii_lowercase + '. \n'})
 
-    data[0][0].update({value('n'): 100})
-    data[100][0].update({value('n'): 100})
-    data[100][0].update({value('a'): 200})
-    data[200][0].update({value('n'): 300})
-    data[300][0].update({value('o'): 400})
-    data[300][0].update({value('n'): 100})
-    data[300][0].update({value('a'): 200})
+    data[100][0].update({encode('n'): 200})
+    data[200][0].update({encode('n'): 200})
+    data[200][0].update({encode('a'): 300})
+    data[300][0].update({encode('n'): 400})
+    data[400][0].update({encode('o'): 500})
+    data[400][0].update({encode('n'): 200})
+    data[400][0].update({encode('a'): 300})
 
     return data
 
 
-def f1(poly, mod, current_state, input_q, results_out, queue_exhausted):
+def f1(poly, mod, current_state, input_q, results_q):
     Mod.set_mod(mod)
-    freq = np.memmap(f'{mod}.dat', dtype=np.uint64, mode='w+', shape=mod)
-
     next_state = current_state
-    while not (queue_exhausted.is_set() and input_q.empty()):
+    while True:
         item = input_q.get(block=True)
-        freq[item.value] += 1
-
-        next_state = poly((next_state + item).value).value
+        if item is None:  # stop
+            input_q.task_done()
+            break
+        next_state = poly(next_state + item).value  # modulo will already be applied here
         input_q.task_done()
 
-    freq.flush()
-
-    print(f'mod=[{mod}], generating plot...')
-
-    from matplotlib import pyplot as plt
-    max_freq = np.max(freq)
-    fig, (ax1, ax2) = plt.subplots(2)
-    fig.suptitle(f'mod={mod}')
-    ax1.plot(np.arange(mod), freq, 'b.', markersize=1)
-    ax1.set_yticks(np.arange(0, max_freq + 1, 1))
-    ax2.hist(freq)
-    ax2.set_yscale("log")
-    ax2.set_xticks(np.arange(0, max_freq + 1, 1))
-    plt.savefig(f'{mod}.png')
-
-    print(f'mod=[{mod}], next state=[{next_state}]')
-
-    results_out.put((next_state, mod))
+    results_q.put_nowait((next_state, mod))
 
 
-def main1():
+def main():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -132,18 +116,22 @@ def main1():
 
     print_done(start)
 
-    print_start('ab parameters calculation')
+    print_start('mignotte parameters calculation')
     start = timer()
 
-    n, k = 3, 3
-    m0, ms = 257, [263, 269, 271]  # get_ab_params(xy_s)
-    print(f'm0={m0}, ms={ms}')
-    print_done(start)
+    n, k = 5, 5
+    authorized_range, ms = get_mignotte_params(xy_s, n=n, k=k)
+    secret = random.choice(authorized_range)
+    shares = [(secret % mi, mi) for mi in ms[:k]]
+    print(f'shares=' + str([f'{share} (mod {mi})' for share, mi in shares]))
+    assert garner_algorithm([x for x, _ in shares], [x for _, x in shares]) == secret
 
-    Mod.set_mod(m0)
+    print_done(start)
 
     print_start('polynomial interpolation')
     start = timer()
+
+    Mod.set_mod(int(np.prod(ms, dtype=np.int64)))
     try:
         with open('p.bin', 'rb') as f:
             p = pickle.load(f)
@@ -155,24 +143,33 @@ def main1():
 
     print_done(start)
 
+    print_start('CRT sanity')
+    start = timer()
+
+    expected = (secret ** 2) % (np.prod(ms[:], dtype=np.int64))
+    for i in range(len(shares)):
+        share, mi = shares[i]
+        shares[i] = ((share ** 2) % mi, mi)
+    print(f'shares=' + str([f'{share % mi} (mod {mi})' for share, mi in shares]))
+    actual = garner_algorithm([x for x, _ in shares], [x for _, x in shares])
+    assert actual == expected, f'expected {expected}, actual={actual}'
+    print_done(start)
+
     print_start('jobs assignment')
     start = timer()
 
-    # print('p={:s} (mod {:d})'.format(str(p), product))
-    initial_state = 0
+    initial_state = 100
     processes = dict()
-    results_q = multiprocessing.SimpleQueue()
-    exhausted = multiprocessing.Event()
+    result_q = multiprocessing.Queue(maxsize=k)
     for mod in ms[:k]:
         Mod.set_mod(mod)
         input_q = multiprocessing.JoinableQueue(maxsize=QUEUE_MAX_SIZE)
         process = multiprocessing.Process(target=f1, args=(
             p,
             mod,
-            Mod(initial_state),
+            initial_state,
             input_q,
-            results_q,
-            exhausted))
+            result_q,))
         processes[mod] = (process, input_q)
         process.start()
 
@@ -181,44 +178,33 @@ def main1():
     print_start('file parsing')
     start = timer()
 
-    # with open('C:\\Users\\stavd\\Desktop\\some_text.txt') as fp:
-    # import mmap
-    # with open('some_text.txt', 'r') as f:
-    #     mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-    #     while mm.tell() != mm.size():
-    #         chunk = mm.read(QUEUE_MAX_SIZE // 10)
-    #         shares = [get_ab_share(value(c), m0, ms[:]) for c in chunk.decode('ascii')]
-    #         for mod, (_, input_q) in processes.items():
-    #             Mod.set_mod(mod)
-    #             for share in shares:
-    #                 input_q.put(Mod(share), block=True)
-    #         sys.stdout.write(f'{mm.tell()}/{mm.size()}\r')
-    #     mm.close()
-    sequence_length = 1  # 100
-    sequences = 1  # RANDOM_INPUT_LENGTH // sequence_length
-    for i in range(sequences):
-        random_chars = random.choices(string.ascii_lowercase + '. ', k=random.randrange(sequence_length))
-        shares = [get_ab_share(value(c), m0, ms[:k]) for c in ['n']]  # random_chars]
+    line_length = 100
+    total_lines = RANDOM_INPUT_LENGTH // line_length
+    for li in range(total_lines):
+        random_chars = random.choices(string.ascii_lowercase + '. \n', k=line_length)
+        inputs = list(map(encode, random_chars))
         for mod, (_, input_q) in processes.items():
             Mod.set_mod(mod)
-            for share in shares:
-                input_q.put(Mod(share), block=True)
-        sys.stdout.write(f'{i}/{sequences}\r')
+            for i in inputs:
+                input_q.put(i, block=True)
+        stdout.write(f'{li + 1}/{total_lines}\r')
 
+    for _, (_, input_q) in processes.items():
+        input_q.put(None, block=True)  # send poison pill
     print_done(start)
 
     print_start('final results collection')
     start = timer()
 
-    exhausted.set()
     results = list()
-    for mod, (_, input_q) in processes.items():
-        sys.stdout.write(f'waiting for [{mod}] to complete...\r')
+    for mod, (proc, input_q) in processes.items():
+        stdout.write(f'waiting for [{mod}] to complete...')
         input_q.join()
-        results += [results_q.get()]
+        proc.join()
+        results += [result_q.get(block=False)]
+        stdout.write('done!\n')
 
-    Mod.set_mod(m0)
-    next_state = Mod(mathlib.garner_algorithm([x for x, _ in results], [x for _, x in results])).value
+    next_state = garner_algorithm([x for x, _ in results], [x for _, x in results])
     print(f'next state is: [{next_state}]!')
 
     print_done(start)
@@ -319,5 +305,4 @@ def main3():
 
 
 if __name__ == '__main__':
-    main3()
-    sys.exit(0)
+    main()

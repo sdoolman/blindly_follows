@@ -43,16 +43,16 @@ def generate_primes(limit, start_from=2):
                 not x % 2 == 0 and not [t for t in range(3, int(round(np.sqrt(x))) + 1, 2) if not x % t]))
 
 
-def get_ab_sequence(m0, limit, n, k):
+def get_authorized_range(primes, n, k):
     from sys import stdout
-    assert k <= n and k <= len(m0) <= n
-    primes = generate_primes(limit, start_from=m0.value // min(m0))
+    assert k <= n
     for i, candidates in enumerate((itertools.combinations(primes, n))):  # 'choose' behavior
         stdout.write(f'{i:,}\r')  # iteration number
-        ms = sorted(np.multiply(m0, candidates).tolist())
-        if m0.value < min(ms) and \
-                m0.value * np.prod(ms[-k + 1:]) < np.prod(ms[:k], dtype=np.int64):
-            return ms  # array is ab compliant
+        ms = sorted(candidates)
+        beta = int(np.prod(ms[-k + 1:]))
+        alpha = int(np.prod(ms[:k], dtype=np.int64))
+        if beta < alpha:
+            return range(beta + 1, alpha), ms  # array is authorized
 
     raise Exception('failed to get ab_primes - consider a higher limit')
 
@@ -75,20 +75,9 @@ def get_ab_share(secret, m0, co_primes):
     return result1
 
 
-class M0(list):
-    def __init__(self, *primes):
-        super(M0, self).__init__(primes)
-
-    @property
-    def value(self):
-        return int(np.prod(self, dtype=np.int64))
-
-
-def get_ab_params(xy_s):
+def get_mignotte_params(xy_s, n=3, k=3):
     xs = xy_s.keys()
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
     factors = set(itertools.chain.from_iterable([primefac.primefac(d) for d in diffs]))
-    n, k = 3, 3
-    m0 = M0(*itertools.islice((p for p in generate_primes(300) if p not in factors), k))
-    ms = get_ab_sequence(m0, limit=100 * 1000, n=n, k=k)  # TODO: choose n,k in another way
-    return m0.value, ms
+
+    return get_authorized_range(itertools.islice((p for p in generate_primes(300) if p not in factors), k), n, k)
