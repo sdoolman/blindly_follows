@@ -6,7 +6,7 @@ from sys import stdout
 import numpy as np
 
 from crr.mathlib import garner_algorithm
-from polymod import Mod
+from crr.polymod import Mod
 
 
 def f(field_modulo, unknown_shares_file, *known_shares_files):
