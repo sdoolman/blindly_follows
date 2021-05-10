@@ -19,10 +19,14 @@ def match(x: str) -> str:
     return res.bin
 
 
-if __name__ == '__main__':
+def main():
     print('> transition table is:\n' + '\n'.join(f'{x} --> {y}' for x, y in T))
     x = input('> enter state: ')
     try:
         print(f'next state is: {match(x)}')
     except ValueError as e:
         print(f'invalid state, error: [{e}]')
+
+
+if __name__ == '__main__':
+    main()
