@@ -38,15 +38,17 @@ def lagrange(x, w, ff):
 
 
 def generate_primes(limit, start_from=2):
-    return (p for p in
-            set(x for x in range(start_from, limit) if
-                not x % 2 == 0 and not [t for t in range(3, int(round(np.sqrt(x))) + 1, 2) if not x % t]))
+    return (p for p in set(
+        x for x in range(start_from, limit) if not x % 2 == 0 and
+        not [t for t in range(3,
+                              int(round(np.sqrt(x))) + 1, 2) if not x % t]))
 
 
 def get_authorized_range(primes, n, k):
     from sys import stdout
     assert k <= n
-    for i, candidates in enumerate((itertools.combinations(primes, n))):  # 'choose' behavior
+    for i, candidates in enumerate(
+        (itertools.combinations(primes, n))):  # 'choose' behavior
         stdout.write(f'{i:,}\r')  # iteration number
         ms = sorted(candidates)
         beta = int(np.prod(ms[-k + 1:]))
@@ -61,23 +63,17 @@ def get_ab_share(secret, m0, co_primes):
     prod = np.prod(co_primes, dtype=np.int64)
     q_param = (prod - secret) // m0
     alpha_param = random.randint(1, q_param)
-    result1 = secret + alpha_param * m0
+    result = secret + alpha_param * m0
 
-    # offset = random.randint(1, prod - result1 - 1)
-    # q_param = (prod - offset) // m0
-    # alpha_param = random.randint(1, q_param)
-    # result2 = offset + alpha_param * m0
-    #
-    # assert result2 < prod and result1 + offset < prod
-
-    # return result2, result1 + offset
-
-    return result1
+    return result
 
 
 def get_mignotte_params(xy_s, n=3, k=3):
     xs = xy_s.keys()
     diffs = set([abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2])
-    factors = set(itertools.chain.from_iterable([primefac.primefac(d) for d in diffs]))
+    factors = set(
+        itertools.chain.from_iterable([primefac.primefac(d) for d in diffs]))
 
-    return get_authorized_range(itertools.islice((p for p in generate_primes(300) if p not in factors), k), n, k)
+    return get_authorized_range(
+        itertools.islice((p for p in generate_primes(300) if p not in factors),
+                         k), n, k)

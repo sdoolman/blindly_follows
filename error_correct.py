@@ -6,10 +6,8 @@ from crr.mathlib import garner_algorithm
 
 
 def damage_r(r):
-    for i in range(len(r)):
-        if r[i] != 0:
-            r[i] = 0
-            break
+    i = random.randrange(len(r))
+    r[i] += 1
 
 
 def recover(N: int, E: int, F: int, r: int) -> tuple:
@@ -18,7 +16,7 @@ def recover(N: int, E: int, F: int, r: int) -> tuple:
             if (y * r) % N == z % N:
                 print(f'y={y}, z={z}')
                 return y, z
-    raise ValueError
+    raise RuntimeError
 
 
 def main():
@@ -27,20 +25,20 @@ def main():
     pn = pk + [7, 11, 13]
     n = int(np.prod(pn))
     e = pn[-1]
-    x = random.randint(int(np.sqrt(k)) + 1, k) ** 2
+    x = random.randint(int(np.sqrt(k)) + 1, k)**2
     print(f'x={x}, k={k}, n={n}, e={e}')
     r = [x % p for p in pn]
     print(f'r={r}')
     damage_r(r)
-    print(f'r={r}')
+    print(f'erroneous={r}')
     rerr = garner_algorithm(r, pn)
     try:
         y, z = recover(n, e, (k - 1) * e, rerr)
         x = z // y
+        print(f'x={x}')
 
-    except ValueError:
-        print('failed to recover!')
-    print(f'x={x}')
+    except RuntimeError:
+        print(f'recovery failed...')
 
 
 if __name__ == '__main__':
