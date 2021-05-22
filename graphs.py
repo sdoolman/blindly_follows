@@ -43,3 +43,6 @@ def main():
         plt.close()
 
     print(f'expected=[{expected.hexdigest()}]\n  actual=[{actual.hexdigest()}]')
+
+if __name__ == '__main__':
+    main()
