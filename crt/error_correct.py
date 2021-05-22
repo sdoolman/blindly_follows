@@ -2,7 +2,7 @@ import random
 
 import numpy as np
 
-from crr.mathlib import garner_algorithm
+from secret_sharing.mathlib import garner_algorithm
 
 
 def damage_r(r):

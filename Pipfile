@@ -12,6 +12,7 @@ primefac = { editable = true, git = "git://github.com/elliptic-shiho/primefac-fo
 graphviz = "*"
 bitstring = "*"
 progressbar2 = "*"
+tqdm = "*"
 
 [dev-packages]
 yapf = "*"

@@ -56,7 +56,7 @@ def get_authorized_range(primes, n, k):
         if beta < alpha:
             return range(beta + 1, alpha), ms  # array is authorized
 
-    raise Exception('failed to get ab_primes - consider a higher limit')
+    raise Exception('failed to find primes - consider a higher limit')
 
 
 def get_ab_share(secret, m0, co_primes):
@@ -75,5 +75,5 @@ def get_mignotte_params(xy_s, n=3, k=3):
         itertools.chain.from_iterable([primefac.primefac(d) for d in diffs]))
 
     return get_authorized_range(
-        itertools.islice((p for p in generate_primes(300) if p not in factors),
+        itertools.islice((p for p in generate_primes(1000, start_from=200) if p not in factors),
                          k), n, k)

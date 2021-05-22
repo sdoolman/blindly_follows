@@ -51,32 +51,32 @@ def encode(character):
 def generate_data():
     data = {
         k: (dict(), random.randint(0, 1))
-        for k in {100, 200, 300, 400, 500}
+        for k in {200, 400, 600, 800, 900}
     }
 
-    data[100][0].update(
-        {encode(c): 100
-         for c in string.ascii_lowercase + '. \n'})
     data[200][0].update(
-        {encode(c): 100
-         for c in string.ascii_lowercase + '. \n'})
-    data[300][0].update(
-        {encode(c): 100
+        {encode(c): 200
          for c in string.ascii_lowercase + '. \n'})
     data[400][0].update(
-        {encode(c): 100
+        {encode(c): 200
          for c in string.ascii_lowercase + '. \n'})
-    data[500][0].update(
-        {encode(c): 500
+    data[600][0].update(
+        {encode(c): 200
+         for c in string.ascii_lowercase + '. \n'})
+    data[800][0].update(
+        {encode(c): 200
+         for c in string.ascii_lowercase + '. \n'})
+    data[900][0].update(
+        {encode(c): 900
          for c in string.ascii_lowercase + '. \n'})
 
-    data[100][0].update({encode('n'): 200})
-    data[200][0].update({encode('n'): 200})
-    data[200][0].update({encode('a'): 300})
-    data[300][0].update({encode('n'): 400})
-    data[400][0].update({encode('o'): 500})
-    data[400][0].update({encode('n'): 200})
-    data[400][0].update({encode('a'): 300})
+    data[200][0].update({encode('n'): 400})
+    data[400][0].update({encode('n'): 400})
+    data[400][0].update({encode('a'): 600})
+    data[600][0].update({encode('n'): 800})
+    data[800][0].update({encode('o'): 900})
+    data[800][0].update({encode('n'): 400})
+    data[800][0].update({encode('a'): 600})
 
     return data
 
@@ -154,7 +154,7 @@ def main():
     print_start('jobs assignment')
     start = timer()
 
-    initial_state = 100
+    initial_state = 200
     processes = dict()
     result_q = multiprocessing.Queue(maxsize=k)
     for mod in ms[:k]:
@@ -176,8 +176,7 @@ def main():
     print_start('file parsing')
     start = timer()
 
-    line_length = 100
-    total_lines = RANDOM_INPUT_LENGTH# // line_length
+    total_lines = RANDOM_INPUT_LENGTH
     for li in tqdm(range(total_lines)):
         random_char = random.choice(string.ascii_lowercase + '. \n')
         #inputs = list(map(encode, random_chars))
@@ -229,7 +228,7 @@ def main():
                 'dest': str(t[0].get(i)),
                 'after': str(t[1])
             } for i in t[0].keys()] for src, t in transitions.items()])),
-        initial=str(200),
+        initial=str(400),
         show_state_attributes=True)
     fsm.get_graph().draw('diagram.png', prog='dot')
 
