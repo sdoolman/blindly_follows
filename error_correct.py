@@ -36,6 +36,12 @@ def main():
     rerr = garner_algorithm(r, pn)
     try:
         y, z = recover(n, e, (k - 1) * e, rerr)
+        # I = [i for i, yi in enumerate([y % p for p in pn]) if yi]
+        # pi = {i: int(pn[i] / np.gcd(y, pn[i])) for i in I}
+        # xi = {i: rerr % pi[i] for i in I}
+        # for z in range(k):
+        #     if [z % pi[i] == xi[i] for i in I]:
+        #         x = z
         x = z // y
 
     except ValueError:

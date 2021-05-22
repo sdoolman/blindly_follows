@@ -19,7 +19,7 @@ def match(x: str) -> str:
     return res.bin
 
 
-def main() -> None:
+def main():
     print('> transition table is:\n' + '\n'.join(f'{x} --> {y}' for x, y in T))
     x = input('> enter state: ')
     try:
