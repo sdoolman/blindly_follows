@@ -1,26 +1,24 @@
-#!/usr/bin/python3
 import itertools
+import matplotlib
 import multiprocessing
+import numpy as np
 import pickle
 import random
 import string
-from sys import stdout
+import time
 from timeit import default_timer as timer
-
-import matplotlib
-import numpy as np
+from tqdm import tqdm
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
 from crr.generic_functions import get_mignotte_params
-from crr.mathlib import garner_algorithm
-from crr.polymod import PolyMod, Mod
+from secret_sharing.mathlib import garner_algorithm
+from polynomials.polymod import PolyMod, Mod
 
 matplotlib.use('Agg')
 
-RANDOM_INPUT_LENGTH = 2 ** 10
+RANDOM_INPUT_LENGTH = 2**15
 QUEUE_MAX_SIZE = 100
-
 
 def print_done(start_val):
     elapsed = timer() - start_val
@@ -43,33 +41,34 @@ def encode(character):
         elif character in string.ascii_letters:
             return ord(character.lower()) - ord('`')
         else:
-            raise Exception(f'failed to find value of [{character}] - consider adding support for it')
+            raise Exception(
+                f'failed to find value of [{character}] - consider adding support for it'
+            )
 
     return encode_inner() * 2
 
 
 def generate_data():
-    # {q1:100,q2:200,q3:300,q4:400}
-    # {0:0,1:1,b:2,br:3,bl:4,c:5}
-    # data = dict(
-    #     [(k, (dict(), random.randint(0, 1)))
-    #      for k in {100, 200, 300, 400}]
-    # )
-    #
-    # data[100][0].update({14: 100, 23: 100, 32: 100, 40: 100, 4: 100, 50: 400})
-    # data[200][0].update({10: 200, 23: 300, 34: 200, 43: 200, 1: 200, 52: 200})
-    # data[300][0].update({11: 300, 24: 400, 32: 300, 5: 100, 51: 100})
-    # data[400][0].update({10: 400, 25: 200, 34: 400, 5: 200, 52: 400})
     data = {
         k: (dict(), random.randint(0, 1))
         for k in {100, 200, 300, 400, 500}
     }
 
-    data[100][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
-    data[200][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
-    data[300][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
-    data[400][0].update({encode(c): 100 for c in string.ascii_lowercase + '. \n'})
-    data[500][0].update({encode(c): 500 for c in string.ascii_lowercase + '. \n'})
+    data[100][0].update(
+        {encode(c): 100
+         for c in string.ascii_lowercase + '. \n'})
+    data[200][0].update(
+        {encode(c): 100
+         for c in string.ascii_lowercase + '. \n'})
+    data[300][0].update(
+        {encode(c): 100
+         for c in string.ascii_lowercase + '. \n'})
+    data[400][0].update(
+        {encode(c): 100
+         for c in string.ascii_lowercase + '. \n'})
+    data[500][0].update(
+        {encode(c): 500
+         for c in string.ascii_lowercase + '. \n'})
 
     data[100][0].update({encode('n'): 200})
     data[200][0].update({encode('n'): 200})
@@ -82,7 +81,7 @@ def generate_data():
     return data
 
 
-def f1(poly, mod, current_state, input_q, results_q):
+def worker(poly, mod, current_state, input_q, results_q):
     Mod.set_mod(mod)
     next_state = current_state
     while True:
@@ -90,26 +89,24 @@ def f1(poly, mod, current_state, input_q, results_q):
         if item is None:  # stop
             input_q.task_done()
             break
-        next_state = poly(next_state + item).value  # modulo will already be applied here
+        next_state = poly(next_state +
+                          item).value  # modulo will already be applied here
         input_q.task_done()
 
     results_q.put_nowait((next_state, mod))
 
 
 def main():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    args = parser.parse_args()
-
     print_start('state machine data generation')
     start = timer()
     transitions = generate_data()
 
-    xy_s = {x: y for (x, y) in
-            itertools.chain.from_iterable(
-                [(src + i, t[0].get(i)) for i in t[0].keys()]
-                for src, t in transitions.items())}
+    xy_s = {
+        x: y
+        for (x, y) in itertools.chain.from_iterable(
+            [(src + i, t[0].get(i)) for i in t[0].keys()]
+            for src, t in transitions.items())
+    }
 
     print_done(start)
 
@@ -121,7 +118,8 @@ def main():
     secret = random.choice(authorized_range)
     shares = [(secret % mi, mi) for mi in ms[:k]]
     print(f'shares=' + str([f'{share} (mod {mi})' for share, mi in shares]))
-    assert garner_algorithm([x for x, _ in shares], [x for _, x in shares]) == secret
+    assert garner_algorithm([x for x, _ in shares],
+                            [x for _, x in shares]) == secret
 
     print_done(start)
 
@@ -136,18 +134,19 @@ def main():
         p = PolyMod.interpolate([(x, y) for x, y in xy_s.items()])
         with open('p.bin', 'wb') as f:
             pickle.dump(p, f)
-    print(f'p={str(p)}')
+    #print(f'p={str(p)}')
 
     print_done(start)
 
     print_start('CRT sanity')
     start = timer()
 
-    expected = (secret ** 2) % (np.prod(ms[:], dtype=np.int64))
+    expected = (secret**2) % (np.prod(ms[:], dtype=np.int64))
     for i in range(len(shares)):
         share, mi = shares[i]
-        shares[i] = ((share ** 2) % mi, mi)
-    print(f'shares=' + str([f'{share % mi} (mod {mi})' for share, mi in shares]))
+        shares[i] = ((share**2) % mi, mi)
+    print(f'shares=' +
+          str([f'{share % mi} (mod {mi})' for share, mi in shares]))
     actual = garner_algorithm([x for x, _ in shares], [x for _, x in shares])
     assert actual == expected, f'expected {expected}, actual={actual}'
     print_done(start)
@@ -161,12 +160,14 @@ def main():
     for mod in ms[:k]:
         Mod.set_mod(mod)
         input_q = multiprocessing.JoinableQueue(maxsize=QUEUE_MAX_SIZE)
-        process = multiprocessing.Process(target=f1, args=(
-            p,
-            mod,
-            initial_state,
-            input_q,
-            result_q,))
+        process = multiprocessing.Process(target=worker,
+                                          args=(
+                                              p,
+                                              mod,
+                                              initial_state,
+                                              input_q,
+                                              result_q,
+                                          ))
         processes[mod] = (process, input_q)
         process.start()
 
@@ -176,15 +177,14 @@ def main():
     start = timer()
 
     line_length = 100
-    total_lines = RANDOM_INPUT_LENGTH // line_length
-    for li in range(total_lines):
-        random_chars = random.choices(string.ascii_lowercase + '. \n', k=line_length)
-        inputs = list(map(encode, random_chars))
+    total_lines = RANDOM_INPUT_LENGTH# // line_length
+    for li in tqdm(range(total_lines)):
+        random_char = random.choice(string.ascii_lowercase + '. \n')
+        #inputs = list(map(encode, random_chars))
         for mod, (_, input_q) in processes.items():
             Mod.set_mod(mod)
-            for i in inputs:
-                input_q.put(i, block=True)
-        stdout.write(f'{li + 1}/{total_lines}\r')
+            #for i in inputs:
+            input_q.put(encode(random_char), block=True)
 
     for _, (_, input_q) in processes.items():
         input_q.put(None, block=True)  # send poison pill
@@ -195,13 +195,12 @@ def main():
 
     results = list()
     for mod, (proc, input_q) in processes.items():
-        stdout.write(f'waiting for [{mod}] to complete...')
         input_q.join()
         proc.join()
         results += [result_q.get(block=False)]
-        stdout.write('done!\n')
 
-    next_state = garner_algorithm([x for x, _ in results], [x for _, x in results])
+    next_state = garner_algorithm([x for x, _ in results],
+                                  [x for _, x in results])
     print(f'next state is: [{next_state}]!')
 
     print_done(start)
@@ -219,19 +218,19 @@ def main():
     lump = Matter()
     fsm = CustomStateMachine(
         model=lump,
-        states=[
-            {'name': str(src), 'tags': ['out: {:d}'.format(trans[1])]} for src, trans in transitions.items()
-        ],
-        transitions=list(itertools.chain(*[
-            [{'trigger': 'in: {:d}'.format(i),
-              'source': str(src),
-              'dest': str(t[0].get(i)),
-              'after': str(t[1])
-              } for i in t[0].keys()]
-            for src, t in transitions.items()])),
+        states=[{
+            'name': str(src),
+            'tags': ['out: {:d}'.format(trans[1])]
+        } for src, trans in transitions.items()],
+        transitions=list(
+            itertools.chain(*[[{
+                'trigger': 'in: {:d}'.format(i),
+                'source': str(src),
+                'dest': str(t[0].get(i)),
+                'after': str(t[1])
+            } for i in t[0].keys()] for src, t in transitions.items()])),
         initial=str(200),
-        show_state_attributes=True
-    )
+        show_state_attributes=True)
     fsm.get_graph().draw('diagram.png', prog='dot')
 
     print_done(start)
