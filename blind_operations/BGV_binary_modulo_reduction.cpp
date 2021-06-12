@@ -91,10 +91,15 @@ int main(int argc, char *argv[])
   // which would result in several parallel slot-wise operations.
   // For simplicity we place the same data into each slot of each ciphertext,
   // printing out only the back of each vector.
-  long bitSize = 4;
-  long mod_data = NTL::RandomBits_long(bitSize);
-  helib::assertInRange(mod_data, 1L, 8L, std::to_string(mod_data) + "is out of range");
-  long a_data = NTL::RandomBnd(pow((mod_data - 1), 2) + 1);
+  std::cout << std::endl;
+
+  long bitSize, mod_data, a_data;
+  std::cout << "> bit size: ";
+  std::cin >> bitSize;
+  std::cout << "> modulo ring: ";
+  std::cin >> mod_data;
+  std::cout << "> number to reduce: ";
+  std::cin >> a_data;
 
   std::cout << "Pre-encryption data:" << std::endl;
   std::cout << "a = " << a_data << std::endl;
@@ -133,9 +138,9 @@ int main(int argc, char *argv[])
   std::vector<helib::Ctxt> encrypted_difference(bitSize + 1, scratch);
   helib::CtPtrs_vectorCt difference_wrapper(encrypted_difference);
 
-  for (auto i = 0; i < mod_data; i++)
+  for (auto i = 0; i < int(pow(mod_data - 1, 2) / mod_data); i++)
   {
-    std::cout << "level=" << i + 1 << std::endl;
+    std::cout << ">> level=" << i + 1 << std::endl;
     helib::subtractBinary(difference_wrapper, a_wrapper, mod_wrapper, &unpackSlotEncoding);
 
     helib::compareTwoNumbers(mu, ni, a_wrapper, mod_wrapper, true, &unpackSlotEncoding); // mu = a < b
@@ -148,7 +153,14 @@ int main(int argc, char *argv[])
   // Decrypt and print the result.
   std::vector<long> decrypted_result;
   helib::decryptBinaryNums(decrypted_result, a_wrapper, secret_key, ea, true);
-  std::cout << "a % m = " << decrypted_result.back() << std::endl;
-
+  long back = decrypted_result.back();
+  std::cout << "a % m = " << back << std::endl;
+  std::cout << "assert that [" << a_data % mod_data << "] == [" << back << "]...";
+  if (a_data % mod_data == back){
+    std::cout <<" --> correct :)" << std::endl;
+  } else {
+    std::cout <<" --> incorrect :(" << std::endl;
+  }
+  
   return 0;
 }
