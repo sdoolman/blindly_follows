@@ -11,7 +11,7 @@ from tqdm import tqdm
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import add_state_features, Tags
 
-from crr.generic_functions import get_mignotte_params
+from crt.generic_functions import get_mignotte_params
 from secret_sharing.mathlib import garner_algorithm
 from polynomials.polymod import PolyMod, Mod
 
