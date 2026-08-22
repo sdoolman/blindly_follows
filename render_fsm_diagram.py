@@ -68,8 +68,8 @@ def generate_fsm_diagram(output_file: Path | str = "diagram.png") -> None:
     except Exception:
         pass
 
-    # Fallback to Graphviz engine API
-    url = "https://quickchart.io/graphviz?graph=" + urllib.parse.quote(dot_source)
+    # Fallback to Graphviz engine API (explicit PNG format)
+    url = "https://quickchart.io/graphviz?format=png&graph=" + urllib.parse.quote(dot_source)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req) as r:
         img_bytes = r.read()

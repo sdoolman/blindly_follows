@@ -160,7 +160,7 @@ def render_diagram(
         import urllib.request
 
         dot_source = fsm.get_graph().source
-        url = "https://quickchart.io/graphviz?graph=" + urllib.parse.quote(dot_source)
+        url = "https://quickchart.io/graphviz?format=png&graph=" + urllib.parse.quote(dot_source)
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req) as r:
             target.write_bytes(r.read())
