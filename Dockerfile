@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy dependency metadata and install requirements
-COPY pyproject.toml Pipfile ./
+COPY pyproject.toml ./
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir "git+https://github.com/elliptic-shiho/primefac-fork.git" && \
     pip install --no-cache-dir matplotlib transitions gmpy2 graphviz bitstring progressbar2 tqdm pytest ruff
