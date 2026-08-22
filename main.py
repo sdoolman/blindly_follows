@@ -158,6 +158,7 @@ def render_diagram(
     except Exception:
         import urllib.parse
         import urllib.request
+
         dot_source = fsm.get_graph().source
         url = "https://quickchart.io/graphviz?graph=" + urllib.parse.quote(dot_source)
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})

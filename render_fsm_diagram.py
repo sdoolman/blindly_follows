@@ -1,10 +1,10 @@
 """Generate exact original GraphMachine Graphviz visual diagram for the state machine."""
 
 import itertools
-from pathlib import Path
 import subprocess
 import urllib.parse
 import urllib.request
+from pathlib import Path
 
 from transitions.extensions import GraphMachine as Machine
 from transitions.extensions.states import Tags, add_state_features
@@ -26,8 +26,7 @@ def generate_fsm_diagram(output_file: Path | str = "diagram.png") -> None:
 
     lump = Matter()
     states_def = [
-        {"name": str(src), "tags": [f"out: {trans[1]}"]}
-        for src, trans in transitions.items()
+        {"name": str(src), "tags": [f"out: {trans[1]}"]} for src, trans in transitions.items()
     ]
     transitions_def = list(
         itertools.chain(
@@ -58,7 +57,7 @@ def generate_fsm_diagram(output_file: Path | str = "diagram.png") -> None:
 
     # Try local dot CLI first if installed
     try:
-        proc = subprocess.run(
+        subprocess.run(
             ["dot", "-Tpng", "-o", str(target_path)],
             input=dot_source.encode("utf-8"),
             capture_output=True,
