@@ -72,7 +72,7 @@ stateDiagram-v2
     State_900 --> State_900: Terminal (out: 1)
 ```
 
-![FSM Diagram](diagram.png)
+![FSM Diagram](fsm_diagram.png)
 
 *To regenerate the state machine diagram image:*
 ```bash
