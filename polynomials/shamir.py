@@ -1,68 +1,37 @@
-'''
-The following Python implementation of Shamir's Secret Sharing is
-released into the Public Domain under the terms of CC0 and OWFa:
-https://creativecommons.org/publicdomain/zero/1.0/
-http://www.openwebfoundation.org/legal/the-owf-1-0-agreements/owfa-1-0
-
-See the bottom few lines for usage. Tested on Python 2 and 3.
-'''
-
-from __future__ import division
-from __future__ import print_function
+"""Shamir's Secret Sharing Scheme over finite fields."""
 
 import functools
 import random
+from collections.abc import Sequence
 
-# 12th Mersenne Prime
-# (for this application we want a known prime number as close as
-# possible to our security level; e.g.  desired security level of 128
-# bits -- too large and all the ciphertext is large; too small and
-# security is compromised)
-import numpy as np
-
-_PRIME = 2 ** 127 - 1
-# 13th Mersenne Prime is 2**521 - 1
-
+# 12th Mersenne Prime (2^127 - 1)
+_PRIME: int = 2**127 - 1
 _RINT = functools.partial(random.SystemRandom().randint, 0)
 
 
-def _eval_at(poly, x, prime):
-    '''evaluates polynomial (coefficient tuple) at x, used to generate a
-    shamir pool in make_random_shares below.
-    '''
+def eval_at(poly: Sequence[int], x: int, prime: int) -> int:
+    """Evaluate polynomial at point x modulo prime using Horner's method."""
     accum = 0
     for coeff in reversed(poly):
-        accum *= x
-        accum += coeff
-        accum %= prime
+        accum = (accum * x + coeff) % prime
     return accum
 
 
-def make_random_shares(minimum, shares, prime=_PRIME):
-    '''
-    Generates a random shamir pool, returns the secret and the share
-    points.
-    '''
+def make_random_shares(
+    minimum: int, shares: int, prime: int = _PRIME
+) -> tuple[int, list[tuple[int, int]]]:
+    """Generate a random Shamir secret pool with threshold (minimum) and share points."""
     if minimum > shares:
-        raise ValueError("pool secret would be irrecoverable")
-    poly = [_RINT(prime) for i in range(minimum)]
-    points = [(i, _eval_at(poly, i, prime))
-              for i in range(1, shares + 1)]
+        raise ValueError("Minimum threshold cannot exceed total number of shares")
+    poly = [_RINT(prime) for _ in range(minimum)]
+    points = [(i, eval_at(poly, i, prime)) for i in range(1, shares + 1)]
     return poly[0], points
 
 
-def _extended_gcd(a, b):
-    '''
-    division in integers modulus p means finding the inverse of the
-    denominator modulo p and then multiplying the numerator by this
-    inverse (Note: inverse of A is B such that A*B % p == 1) this can
-    be computed via extended Euclidean algorithm
-    http://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Computation
-    '''
-    x = 0
-    last_x = 1
-    y = 1
-    last_y = 0
+def extended_gcd(a: int, b: int) -> tuple[int, int]:
+    """Extended Euclidean algorithm computing multiplicative inverse modulo p."""
+    x, last_x = 0, 1
+    y, last_y = 1, 0
     while b != 0:
         quot = a // b
         a, b = b, a % b
@@ -71,73 +40,50 @@ def _extended_gcd(a, b):
     return last_x, last_y
 
 
-def _divmod(num, den, p):
-    '''compute num / den modulo prime p
-
-    To explain what this means, the return value will be such that
-    the following is true: den * _divmod(num, den, p) % p == num
-    '''
-    inv, _ = _extended_gcd(den, p)
-    return num * inv
+def divmod_mod(num: int, den: int, p: int) -> int:
+    """Compute (num / den) modulo prime p using explicit Extended Euclidean inverse."""
+    inv, _ = extended_gcd(den, p)
+    return (num * inv) % p
 
 
-def _lagrange_interpolate(x, x_s, y_s, p):
-    '''
-    Find the y-value for the given x, given n (x, y) points;
-    k points will define a polynomial of up to kth order
-    '''
+def lagrange_interpolate(x: int, x_s: Sequence[int], y_s: Sequence[int], p: int) -> int:
+    """Find the y-value for x given points (x_s, y_s) over finite field mod p."""
     k = len(x_s)
-    print(x_s)
-    print(set(x_s))
-    assert k == len(set(x_s)), 'points must be distinct'
+    if k != len(set(x_s)):
+        raise ValueError("Share x-coordinates must be distinct")
 
-    def PI(vals, p):  # upper-case PI -- product of inputs
-        accum = 1
-        for v in vals:
-            accum = np.mod(np.multiply(accum, v), p)
-        return accum
-
-    nums = []  # avoid inexact division
-    dens = []
+    total = 0
     for i in range(k):
-        others = list(x_s)
-        cur = others.pop(i)
-        nums.append(PI([x - o for o in others], p))
-        dens.append(PI([cur - o for o in others], p))
-    den = PI(dens, p)
-    num = sum([_divmod(nums[i] * den * y_s[i] % p, dens[i], p)
-               for i in range(k)])
-    return (_divmod(num, den, p) + p) % p
+        xi, yi = x_s[i], y_s[i]
+        num, den = 1, 1
+        for j in range(k):
+            if i != j:
+                xj = x_s[j]
+                num = (num * (x - xj)) % p
+                den = (den * (xi - xj)) % p
+        total = (total + yi * divmod_mod(num, den, p)) % p
+    return total % p
 
 
-def recover_secret(shares, prime=_PRIME):
-    '''
-    Recover the secret from share points
-    (x,y points on the polynomial)
-    '''
+def recover_secret(shares: Sequence[tuple[int, int]], prime: int = _PRIME) -> int:
+    """Recover secret from share points (x, y)."""
     if len(shares) < 2:
-        raise ValueError("need at least two shares")
-    x_s, y_s = zip(*shares)
-    return _lagrange_interpolate(0, x_s, y_s, prime)
+        raise ValueError("Need at least two shares to reconstruct")
+    x_s = [s[0] for s in shares]
+    y_s = [s[1] for s in shares]
+    return lagrange_interpolate(0, x_s, y_s, prime)
 
 
-def main():
-    '''main function'''
+def main() -> None:
     secret, shares = make_random_shares(minimum=3, shares=6)
+    print(f"Secret: {secret}")
+    print("Shares:")
+    for share in shares:
+        print(f"  {share}")
 
-    print('secret:                                                     ',
-          secret)
-    print('shares:')
-    if shares:
-        for share in shares:
-            print('  ', share)
-
-    print('secret recovered from minimum subset of shares:             ',
-          recover_secret(shares[:3]))
-    print('secret recovered from a different minimum subset of shares: ',
-          recover_secret(shares[-3:]))
+    print(f"Recovered (subset 0..3): {recover_secret(shares[:3])}")
+    print(f"Recovered (subset 3..6): {recover_secret(shares[-3:])}")
 
 
-if __name__ == '__main__':
-    # main()
-    _lagrange_interpolate(2, [1, 2, 3], [1, 4, 9], 5)
+if __name__ == "__main__":
+    main()

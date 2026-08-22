@@ -1,64 +1,62 @@
+"""Asmuth-Bloom shares arithmetic and frequency analysis simulation."""
+
 import hashlib
-import numpy as np
 import random
 import string
+
+import numpy as np
 from matplotlib import pyplot as plt
 from progressbar import progressbar
 
-from crr.generic_functions import get_ab_share
-from crr.polymod import Mod, PolyMod
-from crr.mathlib import garner_algorithm
+from crt.generic_functions import get_ab_share
+from polynomials.polymod import Mod, PolyMod
+from secret_sharing.mathlib import garner_algorithm
 
-NUMBER_OF_ITERATIONS = 10**6
+NUMBER_OF_ITERATIONS: int = 10**4
 
 
-def main():
+def run_arithmetic_simulation(iterations: int = NUMBER_OF_ITERATIONS) -> None:
+    """Run Asmuth-Bloom threshold sharing arithmetic simulation."""
     m0 = 11 * 13 * 17
-    ms = [17 * 223, 13 * 227, 11 * 229]  # coprime moduli
+    ms = [17 * 223, 13 * 227, 11 * 229]
 
-    freq = {m: np.zeros(m, dtype=int)
-            for m in ms}  # count the different shares for each modulo
+    freq = {m: np.zeros(m, dtype=int) for m in ms}
 
     expected = hashlib.sha256()
     actual = hashlib.sha256()
 
-    for _ in progressbar(range(NUMBER_OF_ITERATIONS)):
-        # generate random secret
+    for _ in progressbar(range(iterations)):
         s = random.choice(string.ascii_lowercase)
-        # find Asmuth-Bloom secret shares
         share = get_ab_share(ord(s), m0, ms)
-        shares = list()
+        shares = []
         for m in ms:
             Mod.set_mod(m)
-            v = PolyMod([2, 4])(share).value  # p(x)=4x+2
-            shares += [v]
+            v = PolyMod([2, 4])(share).value
+            shares.append(v)
             freq[m][v] += 1
 
-        # restore secret from all shares
         Mod.set_mod(m0)
         r = garner_algorithm(shares, ms)
-        r = int(PolyMod([-2, 0.25])(r).value)  # p(x)=0.25x-2
+        r = int(PolyMod([-2, 0.25])(r).value)
 
         expected.update(s.encode())
         actual.update(chr(r).encode())
 
-        # TODO: this is true only when p(x)=x, we should solve this somehow...
-        print(
-            f'expected=[{expected.hexdigest()}]\n actual=[{actual.hexdigest()}]'
-        )
+    print(f"expected=[{expected.hexdigest()}]\n actual=[{actual.hexdigest()}]")
 
     for m in freq:
-        max_freq = np.max(freq[m])  # find the most frequent share
         fig, (ax1, ax2) = plt.subplots(2)
-        fig.suptitle(f'mod={m}')
-
-        ax1.plot(np.arange(m), freq[m], 'b.', markersize=1)
-
+        fig.suptitle(f"mod={m}")
+        ax1.plot(np.arange(m), freq[m], "b.", markersize=1)
         ax2.hist(freq[m])
         ax2.set_yscale("log")
     plt.show()
     plt.close()
 
 
-if __name__ == '__main__':
+def main() -> None:
+    run_arithmetic_simulation()
+
+
+if __name__ == "__main__":
     main()

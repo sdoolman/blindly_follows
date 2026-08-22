@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blindly_follows
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blindly_follows_tests
+    volumes:
+      - .:/app
+    command: pytest

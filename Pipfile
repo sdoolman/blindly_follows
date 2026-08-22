@@ -7,15 +7,17 @@ name = "pypi"
 matplotlib = "*"
 transitions = "*"
 setuptools = "*"
-gmpy2 = {file = "https://download.lfd.uci.edu/pythonlibs/r4tycu3t/gmpy2-2.0.8-cp39-cp39-win_amd64.whl"}
-primefac = { editable = true, git = "git://github.com/elliptic-shiho/primefac-fork" }
+gmpy2 = "*"
+primefac = { git = "git+https://github.com/elliptic-shiho/primefac-fork.git" }
 graphviz = "*"
 bitstring = "*"
 progressbar2 = "*"
 tqdm = "*"
 
 [dev-packages]
+pytest = "*"
+ruff = "*"
 yapf = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.10"

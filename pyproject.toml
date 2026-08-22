@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blindly_follows"
+version = "0.1.0"
+description = "Blind execution of state machines over secret shares and homomorphic encryption (CRT / Mignotte / BGV)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+    { name = "sdoolman" }
+]
+dependencies = [
+    "matplotlib",
+    "transitions",
+    "setuptools",
+    "gmpy2",
+    "primefac @ git+https://github.com/elliptic-shiho/primefac-fork.git",
+    "graphviz",
+    "bitstring",
+    "progressbar2",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+pythonpath = ["."]
+testpaths = [
+    "tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I"]
+ignore = []

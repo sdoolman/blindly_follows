@@ -1,169 +1,160 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+"""Asmuth-Bloom threshold secret sharing scheme implementation."""
+
+import argparse
 import binascii
 import random
 import sys
+from collections.abc import Sequence
+from pathlib import Path
 
-from numpy import long
-
-from crr import mathlib
+from secret_sharing import mathlib
 
 
-class AsmuthBloom(object):
-    def __init__(self, threshold):
-        # threshold is (shares to recombine, all shares)
-        self.threshold = threshold
-        self.shares = None
-        self._m_0 = 0
-        self._y = 0
-        self._secret = 0
+class AsmuthBloom:
+    """Asmuth-Bloom Threshold Secret Sharing Scheme."""
 
-    def _find_group_for_secret(self, k):
-        """Generate group Z/Zm_0 for secret, where m_0 is prime and m_0 > secret."""
+    def __init__(self, threshold: tuple[int, int]) -> None:
+        # threshold is (shares needed to recombine, all shares total)
+        self.threshold: tuple[int, int] = threshold
+        self.shares: list[tuple[int, int]] | None = None
+        self._m_0: int = 0
+        self._y: int = 0
+
+    def _find_group_for_secret(self, k: int) -> int:
         while True:
             m_0 = mathlib.get_prime(k)
             if mathlib.primality_test(m_0):
                 return m_0
 
-    def _check_base_condition(self, d):
-        """Check if d satisfy the Asmuth-Bloom base condition.
-
-        """
+    def _check_base_condition(self, d: Sequence[int]) -> bool:
         recomb_count, all_count = self.threshold
-
         left = 1
         for i in range(1, recomb_count + 1):
-            left = left * d[i]
+            left *= d[i]
 
         right = d[0]
-        for i in range(0, recomb_count - 1):
-            right = right * d[all_count - i]
+        for i in range(recomb_count - 1):
+            right *= d[all_count - i]
         return left > right
 
-    def _get_pairwise_primes(self, k, h):
-        """Generate d = n+1 primes for Asmuth-Bloom threshold scheme and secret 
-        such that d_0 is k-bit prime and d_1 is h-bit prime.
-        (d_1...d_n should be pairwise coprimes)
-        """
+    def _get_pairwise_primes(self, k: int, h: int) -> list[int]:
         if h < k:
-            raise Exception('Not enought bits for m_1')
+            raise ValueError("Not enough bits for m_1 (h must be >= k)")
         _, all_count = self.threshold
-        # p is picked randomly simple number
         p = self._find_group_for_secret(k)
         while True:
             d = [p]
-            # all_count consecutive primes starting from h-bit prime
             for prime in mathlib.get_consecutive_primes(all_count, h):
                 d.append(prime)
             if self._check_base_condition(d):
                 return d
 
-    def _prod(self, coprimes):
-        """Calculate M=m_1*m_2*...*m_t."""
-        M = 1
+    def _prod(self, coprimes: Sequence[int]) -> int:
+        total = 1
         t, _ = self.threshold
-        for i in range(0, t):
-            M = M * coprimes[i]
-        return M
+        for i in range(t):
+            total *= coprimes[i]
+        return total
 
-    def _get_modulo_base(self, secret, coprimes):
-        """Calculate M' = secret + some_number * taken_prime
-        that should be less that coprimes prod.
-        Modulos from this number will be used as shares.
-        """
+    def _get_modulo_base(self, secret: int, coprimes: Sequence[int]) -> int:
         prod = self._prod(coprimes)
         while True:
-            A = mathlib.get_random_range(1, (prod - secret) // self._m_0)
-            y = secret + A * self._m_0
+            a_param = mathlib.get_random_range(1, (prod - secret) // self._m_0)
+            y = secret + a_param * self._m_0
             if 0 <= y < prod:
-                break
-        return y
+                return y
 
-    # k is m_0_bits and h is m_1_bits
-    def generate_shares(self, secret, k, h):
+    def generate_shares(self, secret: int, k: int, h: int) -> list[tuple[int, int]]:
+        """Generate (share, mod) pairs for secret using (k, h) bit parameters."""
         if mathlib.bit_len(secret) > k:
-            raise ValueError('Secret is too long')
+            raise ValueError("Secret exceeds bit length k")
 
         m = self._get_pairwise_primes(k, h)
         self._m_0 = m.pop(0)
-
         self._y = self._get_modulo_base(secret, m)
 
-        self.shares = []
-        for m_i in m:
-            self.shares.append((self._y % m_i, m_i))
-        # shares item format: (ki, di) ki - mods, di - coprimes
+        self.shares = [(self._y % m_i, m_i) for m_i in m]
         return self.shares
 
-    def combine_shares(self, shares):
-        y_i = [x for x, _ in shares]  # remainders
-        m_i = [x for _, x in shares]  # coprimes
+    def combine_shares(self, shares: Sequence[tuple[int, int]]) -> int:
+        """Recombine subset of shares to recover original secret."""
+        y_i = [x for x, _ in shares]
+        m_i = [x for _, x in shares]
         y = mathlib.garner_algorithm(y_i, m_i)
-        d = y % self._m_0
-        return d
+        return y % self._m_0
 
 
-def stringToLong(s):
-    return long(binascii.hexlify(s), 16)
+def string_to_int(s: bytes | str) -> int:
+    """Convert string/bytes into large integer."""
+    raw = s.encode("utf-8") if isinstance(s, str) else s
+    return int(binascii.hexlify(raw), 16)
 
 
-if len(sys.argv) < 4:
-    print('Usage: ./bloom.py (--random <bits> | <path>) <M> <N>')
-    print(' --random <bits>     - generate random secret')
-    print(' <path>              - read secret from file')
-    print(' <M>                 - number of shares')
-    print(' <N>                 - number of shares needed for recovery')
-    sys.exit(1)
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Asmuth-Bloom Threshold Secret Sharing"
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--random",
+        type=int,
+        metavar="BITS",
+        help="Generate random secret with given bit length",
+    )
+    group.add_argument(
+        "--file", type=Path, metavar="PATH", help="Read secret from file"
+    )
+    group.add_argument(
+        "--text", type=str, metavar="STRING", help="Use text string as secret"
+    )
+    parser.add_argument("M", type=int, help="Total number of shares")
+    parser.add_argument(
+        "N", type=int, help="Threshold number of shares needed for recovery"
+    )
 
-source = sys.argv[1]
-if source == '--random':
-    random = random.SystemRandom()
-    secret = random.getrandbits(int(sys.argv.pop(2)))
-else:
-    try:
-        secret = stringToLong(open(source).read())
-    except:
-        print('Could not read the source file')
+    if len(sys.argv) == 1:
+        parser.print_help()
+        return
+
+    args = parser.parse_args()
+
+    if args.N > args.M:
+        print("Error: Threshold N cannot exceed total shares M")
         sys.exit(1)
 
-try:
-    m = int(sys.argv[2])
-    print('Got M = %d' % m)
-except:
-    print('Invalid M')
+    if args.random:
+        secret = random.SystemRandom().getrandbits(args.random)
+    elif args.file:
+        secret = string_to_int(args.file.read_bytes())
+    else:
+        secret = string_to_int(args.text)
 
-try:
-    n = int(sys.argv[3])
-    print('Got N = %d' % n)
-except:
-    print('Invalid N')
+    threshold = (args.N, args.M)
+    m_0_bits = 500
+    m_1_bits = 800
 
-if n > m:
-    print('N should be less or equal than M')
-    sys.exit(1)
+    print("--------------------------------------")
+    print(f"Secret: {secret}")
 
-threshold = (n, m)
-m_0_bits = 500
-m_1_bits = 800
+    ab = AsmuthBloom(threshold)
+    try:
+        shares = ab.generate_shares(secret, m_0_bits, m_1_bits)
+    except ValueError as e:
+        print(f"Cannot generate shares: {e}")
+        sys.exit(1)
 
-print('--------------------------------------')
-print("Secret: %s" % secret)
+    print("Secret shares:")
+    for i, share in enumerate(shares):
+        print(f"{i + 1}: {share}")
 
-ab = AsmuthBloom(threshold)
+    print("--------------------------------------")
+    print("Checking result with first N shares:")
+    recovered = ab.combine_shares(shares[: args.N])
+    print(f"Recombined secret: {recovered}")
+    print(f"Status: {'SUCCESS' if recovered == secret else 'FAILED'}")
+    print("--------------------------------------")
 
-try:
-    shares = ab.generate_shares(secret, m_0_bits, m_1_bits)
-except ValueError as e:
-    print('Cannot generate shares: ' + str(e))
-    sys.exit(1)
 
-print("Secret shares:")
-for i in range(0, m):
-    print("%s: %s\n" % (i + 1, shares[i]))
-
-print('--------------------------------------')
-
-print('Checking result')
-d = ab.combine_shares(shares[0:n])
-print("Recombined secret: %s" % d)
-print("Test %s" % ('successful' if d == secret else 'failed'))
-print('--------------------------------------')
+if __name__ == "__main__":
+    main()
