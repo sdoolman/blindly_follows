@@ -126,8 +126,7 @@ def render_diagram(
 
     lump = Matter()
     states_def = [
-        {"name": str(src), "tags": [f"out: {trans[1]}"]}
-        for src, trans in transitions.items()
+        {"name": str(src), "tags": [f"out: {trans[1]}"]} for src, trans in transitions.items()
     ]
     transitions_def = list(
         itertools.chain(
@@ -197,9 +196,7 @@ def main() -> None:
     print_start("jobs assignment")
     start = timer()
     initial_state = 200
-    processes: dict[
-        int, tuple[multiprocessing.Process, multiprocessing.JoinableQueue]
-    ] = {}
+    processes: dict[int, tuple[multiprocessing.Process, multiprocessing.JoinableQueue]] = {}
     result_q: multiprocessing.Queue = multiprocessing.Queue(maxsize=k)
 
     for mod in ms[:k]:

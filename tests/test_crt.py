@@ -70,7 +70,5 @@ class TestGarnerAlgorithm:
         for _ in range(10):
             secret = random.choice(authorized_range)
             shares = [(secret % mi, mi) for mi in ms[:4]]
-            reconstructed = garner_algorithm(
-                [x for x, _ in shares], [x for _, x in shares]
-            )
+            reconstructed = garner_algorithm([x for x, _ in shares], [x for _, x in shares])
             assert reconstructed == secret

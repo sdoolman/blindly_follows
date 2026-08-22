@@ -92,9 +92,7 @@ def string_to_int(s: bytes | str) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Asmuth-Bloom Threshold Secret Sharing"
-    )
+    parser = argparse.ArgumentParser(description="Asmuth-Bloom Threshold Secret Sharing")
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
         "--random",
@@ -102,16 +100,10 @@ def main() -> None:
         metavar="BITS",
         help="Generate random secret with given bit length",
     )
-    group.add_argument(
-        "--file", type=Path, metavar="PATH", help="Read secret from file"
-    )
-    group.add_argument(
-        "--text", type=str, metavar="STRING", help="Use text string as secret"
-    )
+    group.add_argument("--file", type=Path, metavar="PATH", help="Read secret from file")
+    group.add_argument("--text", type=str, metavar="STRING", help="Use text string as secret")
     parser.add_argument("M", type=int, help="Total number of shares")
-    parser.add_argument(
-        "N", type=int, help="Threshold number of shares needed for recovery"
-    )
+    parser.add_argument("N", type=int, help="Threshold number of shares needed for recovery")
 
     if len(sys.argv) == 1:
         parser.print_help()

@@ -59,9 +59,7 @@ def generate_primes(limit: int, start_from: int = 2) -> list[int]:
     return [p for p in range(max(2, start_from), limit) if sieve[p]]
 
 
-def get_authorized_range(
-    primes: Iterable[int], n: int, k: int
-) -> tuple[range, list[int]]:
+def get_authorized_range(primes: Iterable[int], n: int, k: int) -> tuple[range, list[int]]:
     """Find an authorized sequence of n coprime moduli with threshold k for Mignotte scheme."""
     assert k <= n, "Threshold k must be <= n"
     for i, candidates in enumerate(itertools.combinations(primes, n)):
@@ -93,11 +91,7 @@ def get_mignotte_params(
         xs = [x for x, _ in xy_s]
 
     diffs = {abs(x1 - x2) for x1 in xs for x2 in xs if x1 != x2}
-    factors = set(
-        itertools.chain.from_iterable(primefac.primefac(d) for d in diffs if d > 0)
-    )
+    factors = set(itertools.chain.from_iterable(primefac.primefac(d) for d in diffs if d > 0))
 
-    available_primes = [
-        p for p in generate_primes(1000, start_from=200) if p not in factors
-    ]
+    available_primes = [p for p in generate_primes(1000, start_from=200) if p not in factors]
     return get_authorized_range(available_primes, n, k)
