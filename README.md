@@ -53,6 +53,8 @@ This proof-of-concept demonstrates how to execute a **Distributed Unknown Finite
 
 ```mermaid
 stateDiagram-v2
+    direction LR
+
     [*] --> State_200: Initial (out: 0)
     State_200 --> State_400: in: 'n'
     State_200 --> State_200: in: other
