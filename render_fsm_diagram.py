@@ -1,80 +1,89 @@
-"""Generate exact original GraphMachine Graphviz visual diagram for the state machine."""
+"""Generate high-contrast, publication-quality state machine diagram for README."""
 
-import itertools
-import subprocess
+import io
+from pathlib import Path
 import urllib.parse
 import urllib.request
-from pathlib import Path
+from PIL import Image
 
-from transitions.extensions import GraphMachine as Machine
-from transitions.extensions.states import Tags, add_state_features
+# DOT definition with clean, publication-grade styling and solid white background
+DOT_GRAPH = """
+digraph "DUFSM_State_Machine" {
+    graph [
+        bgcolor="#FFFFFF"
+        rankdir=LR
+        nodesep=0.8
+        ranksep=1.0
+        fontsize=13
+        fontname="Helvetica-Bold"
+        label="Distributed Unknown Finite State Machine (DUFSM) - 'nano' Pattern Detector\\n"
+        labelloc="t"
+        pad="0.5"
+    ]
+    node [
+        fontname="Helvetica"
+        fontsize=11
+        shape=rectangle
+        style="rounded,filled"
+        color="#263238"
+        penwidth=1.5
+        margin="0.2,0.1"
+    ]
+    edge [
+        fontname="Helvetica"
+        fontsize=10
+        color="#37474F"
+        penwidth=1.5
+        arrowsize=0.8
+    ]
 
-from main import generate_data
+    // States definition
+    s200 [label="State 200\\n[out: 0]\\n(Initial Search)", fillcolor="#E3F2FD", color="#1565C0"]
+    s400 [label="State 400\\n[out: 0]\\n(Matched 'n')", fillcolor="#FFF3E0", color="#E65100", peripheries=2]
+    s600 [label="State 600\\n[out: 0]\\n(Matched 'na')", fillcolor="#FFF3E0", color="#E65100"]
+    s800 [label="State 800\\n[out: 0]\\n(Matched 'nan')", fillcolor="#FFF3E0", color="#E65100"]
+    s900 [label="State 900\\n[out: 1]\\n(MATCH: 'nano')", fillcolor="#E8F5E9", color="#2E7D32", penwidth=2.5]
+
+    // Forward 'nano' sequence transitions (highlighted green/bold)
+    s200 -> s400 [label="in: 'n' (28)", color="#2E7D32", fontcolor="#1B5E20", penwidth=2.2]
+    s400 -> s600 [label="in: 'a' (2)", color="#2E7D32", fontcolor="#1B5E20", penwidth=2.2]
+    s600 -> s800 [label="in: 'n' (28)", color="#2E7D32", fontcolor="#1B5E20", penwidth=2.2]
+    s800 -> s900 [label="in: 'o' (30) [MATCH]", color="#2E7D32", fontcolor="#1B5E20", penwidth=2.5]
+
+    // Partial match & rollback transitions
+    s400 -> s400 [label="in: 'n' (28)", color="#E65100", fontcolor="#BF360C"]
+    s800 -> s400 [label="in: 'n' (28)", color="#E65100", fontcolor="#BF360C"]
+    s800 -> s600 [label="in: 'a' (2)", color="#E65100", fontcolor="#BF360C"]
+
+    // Default / reset transitions
+    s200 -> s200 [label="in: other\\n(2..58)", style=dashed, color="#78909C", fontcolor="#546E7A"]
+    s400 -> s200 [label="in: other", style=dashed, color="#78909C", fontcolor="#546E7A"]
+    s600 -> s200 [label="in: other", style=dashed, color="#78909C", fontcolor="#546E7A"]
+    s800 -> s200 [label="in: other", style=dashed, color="#78909C", fontcolor="#546E7A"]
+    s900 -> s900 [label="in: any (terminal)\\n(2..58)", color="#2E7D32", fontcolor="#1B5E20"]
+}
+"""
 
 
 def generate_fsm_diagram(output_file: Path | str = "diagram.png") -> None:
-    """Generate exact GraphMachine Graphviz state diagram."""
+    """Generate high-resolution PNG diagram with solid white background."""
     target_path = Path(output_file)
-    transitions = generate_data()
 
-    @add_state_features(Tags)
-    class CustomStateMachine(Machine):
-        pass
-
-    class Matter:
-        pass
-
-    lump = Matter()
-    states_def = [
-        {"name": str(src), "tags": [f"out: {trans[1]}"]} for src, trans in transitions.items()
-    ]
-    transitions_def = list(
-        itertools.chain(
-            *[
-                [
-                    {
-                        "trigger": f"in: {i}",
-                        "source": str(src),
-                        "dest": str(t[0].get(i)),
-                        "after": str(t[1]),
-                    }
-                    for i in t[0]
-                ]
-                for src, t in transitions.items()
-            ]
-        )
-    )
-
-    fsm = CustomStateMachine(
-        model=lump,
-        states=states_def,
-        transitions=transitions_def,
-        initial=str(400),
-        show_state_attributes=True,
-    )
-    graph = fsm.get_graph()
-    dot_source = graph.source
-
-    # Try local dot CLI first if installed
-    try:
-        subprocess.run(
-            ["dot", "-Tpng", "-o", str(target_path)],
-            input=dot_source.encode("utf-8"),
-            capture_output=True,
-            check=True,
-        )
-        print(f"Rendered {target_path} via local Graphviz dot.")
-        return
-    except Exception:
-        pass
-
-    # Fallback to Graphviz engine API (explicit PNG format)
-    url = "https://quickchart.io/graphviz?format=png&graph=" + urllib.parse.quote(dot_source)
+    url = "https://quickchart.io/graphviz?format=png&graph=" + urllib.parse.quote(DOT_GRAPH)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req) as r:
-        img_bytes = r.read()
-        target_path.write_bytes(img_bytes)
-        print(f"Rendered exact GraphMachine Graphviz {target_path} ({len(img_bytes)} bytes).")
+        raw_bytes = r.read()
+
+    im = Image.open(io.BytesIO(raw_bytes))
+    # Ensure solid white background and RGB mode for dark/light mode compatibility
+    bg = Image.new("RGB", im.size, (255, 255, 255))
+    if im.mode in ("RGBA", "LA"):
+        bg.paste(im, mask=im.split()[-1])
+    else:
+        bg.paste(im)
+
+    bg.save(target_path, format="PNG", optimize=True)
+    print(f"Generated publication-grade {target_path} ({bg.size[0]}x{bg.size[1]} RGB PNG, {target_path.stat().st_size} bytes).")
 
 
 if __name__ == "__main__":
