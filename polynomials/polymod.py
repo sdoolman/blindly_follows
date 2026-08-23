@@ -4,10 +4,11 @@ Implements explicit algebraic algorithms (Extended Euclidean GCD, square-and-mul
 and Lagrange interpolation) faithful to the underlying cryptographic theory.
 """
 
+from __future__ import annotations
+
 import json
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Self
 
 
 class Mod:
@@ -25,17 +26,20 @@ class Mod:
 
     @staticmethod
     def math_mod(a: int) -> int:
-        """Explicit mathematical modulo reduction ensuring non-negative residue."""
-        return (abs(a * Mod.M) + a) % Mod.M
+        """Explicit mathematical modulo reduction guaranteeing positive residue in [0, M-1]."""
+        return ((a % Mod.M) + Mod.M) % Mod.M
 
     @staticmethod
-    def exp_mod(a: int, b: int) -> int:
-        """Square-and-multiply modular exponentiation algorithm."""
-        if b == 0:
+    def exp_mod(a: int, k: int) -> int:
+        """Explicit square-and-multiply modular exponentiation: a^k mod M."""
+        if k == 0:
             return 1
-        z = Mod.exp_mod(a, b // 2)
-        if b % 2 == 0:
+        if k == 1:
+            return Mod.math_mod(a)
+        if k % 2 == 0:
+            z = Mod.exp_mod(a, k // 2)
             return Mod.math_mod(z * z)
+        z = Mod.exp_mod(a, (k - 1) // 2)
         return Mod.math_mod(a * z * z)
 
     @staticmethod
@@ -46,52 +50,52 @@ class Mod:
         d, x, y = Mod.egcd(b, a % b)
         return d, y, x - (a // b) * y
 
-    def __init__(self, n: int | Self) -> None:
+    def __init__(self, n: int | Mod) -> None:
         if isinstance(n, Mod):
             self.value: int = n.value
         else:
             self.value: int = Mod.math_mod(n)
 
-    def __neg__(self) -> Self:
+    def __neg__(self) -> Mod:
         return Mod(-self.value)
 
-    def __add__(self, m: int | Self) -> Self:
+    def __add__(self, m: int | Mod) -> Mod:
         val = m.value if isinstance(m, Mod) else m
         return Mod(self.value + val)
 
-    def __sub__(self, m: int | Self) -> Self:
+    def __sub__(self, m: int | Mod) -> Mod:
         val = m.value if isinstance(m, Mod) else m
         return Mod(self.value - val)
 
-    def __mul__(self, m: int | Self) -> Self:
+    def __mul__(self, m: int | Mod) -> Mod:
         val = m.value if isinstance(m, Mod) else m
         return Mod(self.value * val)
 
-    def __radd__(self, other: int | Self) -> Self:
+    def __radd__(self, other: int | Mod) -> Mod:
         return self if other == 0 else self.__add__(other)
 
-    def __rsub__(self, other: int | Self) -> Self:
+    def __rsub__(self, other: int | Mod) -> Mod:
         return Mod(other - self.value)
 
-    def __rmul__(self, other: int | Self) -> Self:
+    def __rmul__(self, other: int | Mod) -> Mod:
         return self.__mul__(other)
 
-    def __iadd__(self, m: int | Self) -> Self:
+    def __iadd__(self, m: int | Mod) -> Mod:
         val = m.value if isinstance(m, Mod) else m
         self.value = Mod.math_mod(self.value + val)
         return self
 
-    def __isub__(self, m: int | Self) -> Self:
+    def __isub__(self, m: int | Mod) -> Mod:
         val = m.value if isinstance(m, Mod) else m
         self.value = Mod.math_mod(self.value - val)
         return self
 
-    def __imul__(self, m: int | Self) -> Self:
+    def __imul__(self, m: int | Mod) -> Mod:
         val = m.value if isinstance(m, Mod) else m
         self.value = Mod.math_mod(self.value * val)
         return self
 
-    def __pow__(self, k: int) -> Self:
+    def __pow__(self, k: int) -> Mod:
         return Mod(Mod.exp_mod(self.value, k))
 
     def __str__(self) -> str:
@@ -110,7 +114,7 @@ class Mod:
     def __ne__(self, m: object) -> bool:
         return not self.__eq__(m)
 
-    def inverse(self) -> Self:
+    def inverse(self) -> Mod:
         """Compute modular multiplicative inverse via Extended Euclidean Algorithm."""
         if self.value == 0:
             raise ZeroDivisionError("Inverse of 0 is undefined.")
@@ -127,7 +131,7 @@ class PolyMod:
     """Polynomial with coefficients in modular ring Z_M."""
 
     @staticmethod
-    def interpolate(points: Sequence[tuple[int, int]]) -> Self:
+    def interpolate(points: Sequence[tuple[int, int]]) -> PolyMod:
         """Construct polynomial passing through points using explicit Lagrange basis polynomials."""
         deltas = []
         s = PolyMod([0])
@@ -138,43 +142,38 @@ class PolyMod:
             for j in range(n):
                 if i != j:
                     num *= PolyMod([-points[j][0], 1])
-                    den *= points[i][0] - points[j][0]
-            try:
-                num *= den.inverse()
-            except Exception as e:
-                raise ValueError(f"Caught improper inverse. Interpolation impossible: {e}")
-            deltas.append(num)
-
+                    den *= Mod(points[i][0] - points[j][0])
+            deltas.append(num * den.inverse().value)
         for i in range(n):
-            s += deltas[i] * points[i][1]
+            s += deltas[i] * Mod(points[i][1])
         return s
 
-    def __init__(self, terms: Sequence[int | Mod] = ()) -> None:
-        self.terms: list[Mod] = [t if isinstance(t, Mod) else Mod(t) for t in terms]
-        self.degree: int = self._degree()
+    def __init__(self, terms: Sequence[int | Mod]) -> None:
+        if isinstance(terms, Sequence):
+            self.terms: list[Mod] = [Mod(t) for t in terms]
+        else:
+            raise TypeError("Terms must be a sequence.")
+        self.degree: int = 0
+        for i in range(len(self.terms) - 1, -1, -1):
+            if self.terms[i] != 0:
+                self.degree = i
+                break
 
-    def _degree(self) -> int:
-        c = 0
-        for i in reversed(self.terms):
-            if i != 0:
-                return len(self.terms) - 1 - c
-            c += 1
-        return 0
+    def get_terms(self) -> list[int]:
+        return [t.value for t in self.terms]
 
-    def __getitem__(self, n: int) -> Mod:
-        return self.terms[n]
+    def __getitem__(self, item: int) -> Mod:
+        return self.terms[item]
 
-    def __setitem__(self, n: int, v: int | Mod) -> None:
-        self.terms[n] = Mod(v)
-        self.degree = self._degree()
+    def __setitem__(self, key: int, value: int | Mod) -> None:
+        self.terms[key] = Mod(value)
 
-    def __call__(self, v: int | Mod) -> Mod:
-        """Evaluate polynomial at point v: sum(terms[i] * (v ** i))."""
-        total = Mod(0)
-        n = Mod(v)
+    def __call__(self, x: int | Mod) -> Mod:
+        out = Mod(0)
+        x_val = Mod(x)
         for i, term in enumerate(self.terms):
-            total += term * (n**i)
-        return total
+            out += term * (x_val**i)
+        return out
 
     def __len__(self) -> int:
         return len(self.terms)
@@ -195,7 +194,7 @@ class PolyMod:
             i -= 1
         return out if out else "0"
 
-    def __add__(self, p: Self) -> Self:
+    def __add__(self, p: PolyMod) -> PolyMod:
         ply = []
         c = 0
         for i in range(max(len(self.terms), len(p))):
@@ -208,7 +207,7 @@ class PolyMod:
             c += 1
         return PolyMod(ply)
 
-    def __sub__(self, p: Self) -> Self:
+    def __sub__(self, p: PolyMod) -> PolyMod:
         ply = []
         c = 0
         for i in range(max(len(self.terms), len(p))):
@@ -221,7 +220,7 @@ class PolyMod:
             c += 1
         return PolyMod(ply)
 
-    def __mul__(self, p: Self | int | Mod) -> Self:
+    def __mul__(self, p: PolyMod | int | Mod) -> PolyMod:
         ply: list[Mod] = []
         if isinstance(p, PolyMod):
             for i in range(len(self.terms)):
@@ -235,13 +234,13 @@ class PolyMod:
                 ply.insert(i, self.terms[i] * p)
         return PolyMod(ply)
 
-    def __iadd__(self, p: Self) -> Self:
+    def __iadd__(self, p: PolyMod) -> PolyMod:
         return self + p
 
-    def __isub__(self, p: Self) -> Self:
+    def __isub__(self, p: PolyMod) -> PolyMod:
         return self - p
 
-    def __imul__(self, p: Self | int | Mod) -> Self:
+    def __imul__(self, p: PolyMod | int | Mod) -> PolyMod:
         if isinstance(p, PolyMod):
             return self * p
         for i in range(len(self.terms)):
@@ -271,7 +270,7 @@ class PolyMod:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> Self:
+    def from_dict(cls, data: dict) -> PolyMod:
         Mod.set_mod(data.get("modulus", Mod.M))
         return cls([c for c in data.get("coefficients", [])])
 
@@ -280,7 +279,7 @@ class PolyMod:
         path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
 
     @classmethod
-    def load_json(cls, filepath: Path | str) -> Self:
+    def load_json(cls, filepath: Path | str) -> PolyMod:
         path = Path(filepath)
         data = json.loads(path.read_text(encoding="utf-8"))
         return cls.from_dict(data)

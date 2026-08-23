@@ -1,9 +1,10 @@
 """Generate high-contrast, publication-quality state machine diagram for README."""
 
 import io
-from pathlib import Path
 import urllib.parse
 import urllib.request
+from pathlib import Path
+
 from PIL import Image
 
 # DOT definition with clean, publication-grade styling and solid white background
@@ -38,11 +39,11 @@ digraph "DUFSM_State_Machine" {
     ]
 
     // States definition
-    s200 [label="State 200\\n[out: 0]\\n(Initial Search)", fillcolor="#E3F2FD", color="#1565C0"]
-    s400 [label="State 400\\n[out: 0]\\n(Matched 'n')", fillcolor="#FFF3E0", color="#E65100", peripheries=2]
-    s600 [label="State 600\\n[out: 0]\\n(Matched 'na')", fillcolor="#FFF3E0", color="#E65100"]
-    s800 [label="State 800\\n[out: 0]\\n(Matched 'nan')", fillcolor="#FFF3E0", color="#E65100"]
-    s900 [label="State 900\\n[out: 1]\\n(MATCH: 'nano')", fillcolor="#E8F5E9", color="#2E7D32", penwidth=2.5]
+    s200 [label="State 200\\n[out: 0]\\n(Initial)", fillcolor="#E3F2FD", color="#1565C0"]
+    s400 [label="State 400\\n[out: 0]\\n('n')", fillcolor="#FFF3E0", color="#E65100", peripheries=2]
+    s600 [label="State 600\\n[out: 0]\\n('na')", fillcolor="#FFF3E0", color="#E65100"]
+    s800 [label="State 800\\n[out: 0]\\n('nan')", fillcolor="#FFF3E0", color="#E65100"]
+    s900 [label="State 900\\n[out: 1]\\n(MATCH)", fillcolor="#E8F5E9", color="#2E7D32", penwidth=2]
 
     // Forward 'nano' sequence transitions (highlighted green/bold)
     s200 -> s400 [label="in: 'n' (28)", color="#2E7D32", fontcolor="#1B5E20", penwidth=2.2]
@@ -83,7 +84,9 @@ def generate_fsm_diagram(output_file: Path | str = "diagram.png") -> None:
         bg.paste(im)
 
     bg.save(target_path, format="PNG", optimize=True)
-    print(f"Generated publication-grade {target_path} ({bg.size[0]}x{bg.size[1]} RGB PNG, {target_path.stat().st_size} bytes).")
+    w, h = bg.size
+    size_b = target_path.stat().st_size
+    print(f"Generated publication-grade {target_path} ({w}x{h} RGB PNG, {size_b} bytes).")
 
 
 if __name__ == "__main__":
